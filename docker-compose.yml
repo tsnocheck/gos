@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: goszalupa_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: goszalupa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - goszalupa_network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: goszalupa_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: password
+      DB_NAME: goszalupa
+      JWT_SECRET: your-super-secret-jwt-key-here-change-in-production
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      SESSION_SECRET: your-super-secret-session-key-here-change-in-production
+    depends_on:
+      - postgres
+    networks:
+      - goszalupa_network
+
+volumes:
+  postgres_data:
+
+networks:
+  goszalupa_network:
+    driver: bridge

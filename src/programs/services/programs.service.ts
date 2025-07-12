@@ -1,0 +1,454 @@
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, ILike } from 'typeorm';
+import { Program } from '../entities/program.entity';
+import { Expertise } from '../entities/expertise.entity';
+import { User } from '../../users/entities/user.entity';
+import { UserRole } from '../../users/enums/user.enum';
+import { ProgramStatus } from '../enums/program.enum';
+import {
+  CreateProgramDto,
+  UpdateProgramDto,
+  SubmitProgramDto,
+  ApproveProgramDto,
+  RejectProgramDto,
+  CreateVersionDto,
+  ProgramQueryDto,
+} from '../dto/program.dto';
+
+@Injectable()
+export class ProgramsService {
+  constructor(
+    @InjectRepository(Program)
+    private readonly programRepository: Repository<Program>,
+  ) {}
+
+  async create(createProgramDto: CreateProgramDto, author: User): Promise<Program> {
+    if (!author.roles.includes(UserRole.AUTHOR) && !author.roles.includes(UserRole.ADMIN)) {
+      throw new ForbiddenException('Только авторы и администраторы могут создавать программы');
+    }
+
+    const program = this.programRepository.create({
+      ...createProgramDto,
+      authorId: author.id,
+      status: ProgramStatus.DRAFT,
+      version: 1,
+    });
+
+    return await this.programRepository.save(program);
+  }
+
+  async findAll(query: ProgramQueryDto, user: User): Promise<{ programs: Program[]; total: number }> {
+    const {
+      status,
+      authorId,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+      page = 1,
+      limit = 10,
+    } = query;
+
+    const queryBuilder = this.programRepository
+      .createQueryBuilder('program')
+      .leftJoinAndSelect('program.author', 'author')
+      .leftJoinAndSelect('program.approvedBy', 'approvedBy');
+
+    // Фильтрация по статусу
+    if (status) {
+      queryBuilder.andWhere('program.status = :status', { status });
+    }
+
+    // Фильтрация по автору
+    if (authorId) {
+      queryBuilder.andWhere('program.authorId = :authorId', { authorId });
+    }
+
+    // Для авторов показываем только их программы
+    if (user.roles.includes(UserRole.AUTHOR) && !user.roles.includes(UserRole.ADMIN) && !user.roles.includes(UserRole.EXPERT)) {
+      queryBuilder.andWhere('program.authorId = :userId', { userId: user.id });
+    }
+
+    // Поиск по названию или описанию
+    if (search) {
+      queryBuilder.andWhere(
+        '(program.title ILIKE :search OR program.description ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    // Сортировка
+    const allowedSortFields = ['createdAt', 'updatedAt', 'title', 'status'];
+    if (allowedSortFields.includes(sortBy)) {
+      queryBuilder.orderBy(`program.${sortBy}`, sortOrder);
+    }
+
+    // Пагинация
+    const skip = (page - 1) * limit;
+    queryBuilder.skip(skip).take(limit);
+
+    const [programs, total] = await queryBuilder.getManyAndCount();
+
+    return { programs, total };
+  }
+
+  async findOne(id: string, user: User): Promise<Program> {
+    const program = await this.programRepository.findOne({
+      where: { id },
+      relations: ['author', 'approvedBy', 'expertises', 'expertises.expert'],
+    });
+
+    if (!program) {
+      throw new NotFoundException('Программа не найдена');
+    }
+
+    // Проверка доступа
+    if ((user.roles.includes(UserRole.AUTHOR) && !user.roles.includes(UserRole.ADMIN) && !user.roles.includes(UserRole.EXPERT)) && program.authorId !== user.id) {
+      throw new ForbiddenException('Нет доступа к этой программе');
+    }
+
+    return program;
+  }
+
+  async update(id: string, updateProgramDto: UpdateProgramDto, user: User): Promise<Program> {
+    const program = await this.findOne(id, user);
+
+    // Проверка возможности редактирования
+    if (program.status !== ProgramStatus.DRAFT && program.status !== ProgramStatus.REJECTED) {
+      throw new BadRequestException('Можно редактировать только черновики или отклоненные программы');
+    }
+
+    // Проверка прав
+    if ((user.roles.includes(UserRole.AUTHOR) && !user.roles.includes(UserRole.ADMIN) && !user.roles.includes(UserRole.EXPERT)) && program.authorId !== user.id) {
+      throw new ForbiddenException('Нет доступа к редактированию этой программы');
+    }
+
+    Object.assign(program, updateProgramDto);
+    return await this.programRepository.save(program);
+  }
+
+  async submit(id: string, submitDto: SubmitProgramDto, user: User): Promise<Program> {
+    const program = await this.findOne(id, user);
+
+    if (program.status !== ProgramStatus.DRAFT && program.status !== ProgramStatus.REJECTED) {
+      throw new BadRequestException('Можно отправить на экспертизу только черновики или отклоненные программы');
+    }
+
+    if ((user.roles.includes(UserRole.AUTHOR) && !user.roles.includes(UserRole.ADMIN) && !user.roles.includes(UserRole.EXPERT)) && program.authorId !== user.id) {
+      throw new ForbiddenException('Нет доступа к отправке этой программы');
+    }
+
+    program.status = ProgramStatus.SUBMITTED;
+    program.submittedAt = new Date();
+
+    return await this.programRepository.save(program);
+  }
+
+  async approve(id: string, approveDto: ApproveProgramDto, admin: User): Promise<Program> {
+    if (!admin.roles.includes(UserRole.ADMIN)) {
+      throw new ForbiddenException('Только администраторы могут одобрять программы');
+    }
+
+    const program = await this.findOne(id, admin);
+
+    if (program.status !== ProgramStatus.IN_REVIEW) {
+      throw new BadRequestException('Можно одобрить только программы на рассмотрении');
+    }
+
+    program.status = ProgramStatus.APPROVED;
+    program.approvedAt = new Date();
+    program.approvedById = admin.id;
+
+    return await this.programRepository.save(program);
+  }
+
+  async reject(id: string, rejectDto: RejectProgramDto, admin: User): Promise<Program> {
+    if (!admin.roles.includes(UserRole.ADMIN)) {
+      throw new ForbiddenException('Только администраторы могут отклонять программы');
+    }
+
+    const program = await this.findOne(id, admin);
+
+    if (program.status !== ProgramStatus.IN_REVIEW && program.status !== ProgramStatus.SUBMITTED) {
+      throw new BadRequestException('Можно отклонить только отправленные или рассматриваемые программы');
+    }
+
+    program.status = ProgramStatus.REJECTED;
+    program.rejectionReason = rejectDto.reason;
+
+    return await this.programRepository.save(program);
+  }
+
+  async archive(id: string, admin: User): Promise<Program> {
+    if (!admin.roles.includes(UserRole.ADMIN)) {
+      throw new ForbiddenException('Только администраторы могут архивировать программы');
+    }
+
+    const program = await this.findOne(id, admin);
+    program.status = ProgramStatus.ARCHIVED;
+    program.archivedAt = new Date();
+
+    return await this.programRepository.save(program);
+  }
+
+  async createVersion(id: string, createVersionDto: CreateVersionDto, user: User): Promise<Program> {
+    const originalProgram = await this.findOne(id, user);
+
+    if (originalProgram.status !== ProgramStatus.APPROVED) {
+      throw new BadRequestException('Можно создать версию только одобренной программы');
+    }
+
+    if ((user.roles.includes(UserRole.AUTHOR) && !user.roles.includes(UserRole.ADMIN) && !user.roles.includes(UserRole.EXPERT)) && originalProgram.authorId !== user.id) {
+      throw new ForbiddenException('Нет доступа к созданию версии этой программы');
+    }
+
+    const newVersion = this.programRepository.create({
+      title: createVersionDto.title,
+      description: createVersionDto.description || originalProgram.description,
+      programCode: originalProgram.programCode,
+      duration: originalProgram.duration,
+      targetAudience: originalProgram.targetAudience,
+      competencies: originalProgram.competencies,
+      learningOutcomes: originalProgram.learningOutcomes,
+      content: originalProgram.content,
+      methodology: originalProgram.methodology,
+      assessment: originalProgram.assessment,
+      materials: originalProgram.materials,
+      requirements: originalProgram.requirements,
+      nprContent: originalProgram.nprContent,
+      pmrContent: originalProgram.pmrContent,
+      vrContent: originalProgram.vrContent,
+      authorId: originalProgram.authorId,
+      status: ProgramStatus.DRAFT,
+      version: originalProgram.version + 1,
+      parentId: originalProgram.id,
+    });
+
+    return await this.programRepository.save(newVersion);
+  }
+
+  async getVersions(id: string, user: User): Promise<Program[]> {
+    const program = await this.findOne(id, user);
+
+    // Найти все версии (включая родительскую)
+    const versions = await this.programRepository.find({
+      where: [
+        { id: program.parentId || program.id },
+        { parentId: program.parentId || program.id },
+      ],
+      relations: ['author', 'approvedBy'],
+      order: { version: 'ASC' },
+    });
+
+    return versions;
+  }
+
+  async remove(id: string, admin: User): Promise<void> {
+    if (!admin.roles.includes(UserRole.ADMIN)) {
+      throw new ForbiddenException('Только администраторы могут удалять программы');
+    }
+
+    const program = await this.findOne(id, admin);
+    await this.programRepository.remove(program);
+  }
+
+  async getStatistics(user: User): Promise<any> {
+    const queryBuilder = this.programRepository.createQueryBuilder('program');
+
+    // Для авторов показываем только их статистику
+    if ((user.roles.includes(UserRole.AUTHOR) && !user.roles.includes(UserRole.ADMIN) && !user.roles.includes(UserRole.EXPERT))) {
+      queryBuilder.where('program.authorId = :userId', { userId: user.id });
+    }
+
+    const total = await queryBuilder.getCount();
+
+    const statusCounts = await queryBuilder
+      .select('program.status, COUNT(*) as count')
+      .groupBy('program.status')
+      .getRawMany();
+
+    const monthlyStats = await queryBuilder
+      .select([
+        'EXTRACT(YEAR FROM program.createdAt) as year',
+        'EXTRACT(MONTH FROM program.createdAt) as month',
+        'COUNT(*) as count'
+      ])
+      .where('program.createdAt >= :date', { date: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) })
+      .groupBy('year, month')
+      .orderBy('year, month')
+      .getRawMany();
+
+    return {
+      total,
+      statusCounts: statusCounts.reduce((acc, item) => {
+        acc[item.status] = parseInt(item.count);
+        return acc;
+      }, {}),
+      monthlyStats,
+    };
+  }
+
+  // 1.5 Отправка программ в архив и возвращение из архива (для администратора)
+  async archiveProgram(id: string, adminUser: User): Promise<Program> {
+    if (!adminUser.roles.includes(UserRole.ADMIN)) {
+      throw new ForbiddenException('Только администраторы могут архивировать программы');
+    }
+
+    const program = await this.findOne(id, adminUser);
+    
+    if (program.status === ProgramStatus.ARCHIVED) {
+      throw new BadRequestException('Программа уже находится в архиве');
+    }
+
+    program.status = ProgramStatus.ARCHIVED;
+    program.archivedAt = new Date();
+    
+    return await this.programRepository.save(program);
+  }
+
+  async unarchiveProgram(id: string, adminUser: User): Promise<Program> {
+    if (!adminUser.roles.includes(UserRole.ADMIN)) {
+      throw new ForbiddenException('Только администраторы могут извлекать программы из архива');
+    }
+
+    const program = await this.findOne(id, adminUser);
+    
+    if (program.status !== ProgramStatus.ARCHIVED) {
+      throw new BadRequestException('Программа не находится в архиве');
+    }
+
+    // Восстанавливаем предыдущий статус (обычно draft или approved)
+    program.status = program.approvedAt ? ProgramStatus.APPROVED : ProgramStatus.DRAFT;
+    (program as any).archivedAt = null;
+    
+    return await this.programRepository.save(program);
+  }
+
+  // Получение архивированных программ
+  async getArchivedPrograms(adminUser: User): Promise<Program[]> {
+    if (!adminUser.roles.includes(UserRole.ADMIN)) {
+      throw new ForbiddenException('Только администраторы могут просматривать архив программ');
+    }
+
+    return await this.programRepository.find({
+      where: { status: ProgramStatus.ARCHIVED },
+      relations: ['author', 'approvedBy'],
+      order: { archivedAt: 'DESC' },
+    });
+  }
+
+  // 2.6 Получение, просмотр и скачивание заключения экспертов
+  async getExpertiseResults(programId: string, user: User): Promise<Expertise[]> {
+    const program = await this.findOne(programId, user);
+    
+    // Проверяем права доступа
+    if ((user.roles.includes(UserRole.AUTHOR) && !user.roles.includes(UserRole.ADMIN) && !user.roles.includes(UserRole.EXPERT)) && program.authorId !== user.id) {
+      throw new ForbiddenException('Вы можете просматривать только заключения по своим программам');
+    }
+
+    return await this.programRepository
+      .createQueryBuilder('program')
+      .leftJoinAndSelect('program.expertises', 'expertise')
+      .leftJoinAndSelect('expertise.expert', 'expert')
+      .where('program.id = :programId', { programId })
+      .andWhere('expertise.status = :status', { status: 'completed' })
+      .getOne()
+      .then(p => p?.expertises || []);
+  }
+
+  // 2.7 Создание новой версии программы после отклонения
+  async createNewVersion(programId: string, author: User): Promise<Program> {
+    const originalProgram = await this.programRepository.findOne({
+      where: { id: programId },
+      relations: ['author', 'expertises']
+    });
+
+    if (!originalProgram) {
+      throw new NotFoundException('Программа не найдена');
+    }
+
+    // Проверяем, что пользователь является автором
+    if (originalProgram.authorId !== author.id) {
+      throw new ForbiddenException('Только автор может создать новую версию программы');
+    }
+
+    // Проверяем, что программа отклонена
+    if (originalProgram.status !== ProgramStatus.REJECTED) {
+      throw new BadRequestException('Новую версию можно создать только для отклоненной программы');
+    }
+
+    // Создаем новую версию программы
+    const newVersion = new Program();
+    newVersion.title = originalProgram.title;
+    newVersion.description = originalProgram.description;
+    newVersion.programCode = originalProgram.programCode;
+    newVersion.duration = originalProgram.duration;
+    newVersion.targetAudience = originalProgram.targetAudience;
+    newVersion.competencies = originalProgram.competencies;
+    newVersion.learningOutcomes = originalProgram.learningOutcomes;
+    newVersion.content = originalProgram.content;
+    newVersion.methodology = originalProgram.methodology;
+    newVersion.assessment = originalProgram.assessment;
+    newVersion.materials = originalProgram.materials;
+    newVersion.requirements = originalProgram.requirements;
+    newVersion.nprContent = originalProgram.nprContent;
+    newVersion.pmrContent = originalProgram.pmrContent;
+    newVersion.vrContent = originalProgram.vrContent;
+    newVersion.authorId = originalProgram.authorId;
+    newVersion.version = originalProgram.version + 1;
+    newVersion.parentId = originalProgram.id;
+    newVersion.status = ProgramStatus.DRAFT;
+
+    return await this.programRepository.save(newVersion);
+  }
+
+  // 2.8 Получение всех версий программы
+  async getProgramVersions(programId: string, author: User): Promise<Program[]> {
+    // Находим корневую программу
+    const rootProgram = await this.programRepository.findOne({
+      where: { id: programId },
+      relations: ['author']
+    });
+
+    if (!rootProgram) {
+      throw new NotFoundException('Программа не найдена');
+    }
+
+    // Проверяем права доступа
+    if (rootProgram.authorId !== author.id && !author.roles.includes(UserRole.ADMIN)) {
+      throw new ForbiddenException('Нет доступа к версиям этой программы');
+    }
+
+    // Находим все версии программы
+    const versions = await this.programRepository.find({
+      where: [
+        { id: programId },
+        { parentId: programId },
+        { parentId: rootProgram.parentId || programId }
+      ],
+      relations: ['author', 'expertises', 'expertises.expert'],
+      order: { version: 'ASC' }
+    });
+
+    return versions;
+  }
+
+  // Проверка возможности редактирования программы
+  async canEditProgram(programId: string, author: User): Promise<boolean> {
+    const program = await this.programRepository.findOne({
+      where: { id: programId }
+    });
+
+    if (!program) {
+      return false;
+    }
+
+    // Только автор может редактировать
+    if (program.authorId !== author.id) {
+      return false;
+    }
+
+    // Можно редактировать только черновики
+    return program.status === ProgramStatus.DRAFT;
+  }
+}
