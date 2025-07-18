@@ -7,7 +7,7 @@ async function fixAdminRole() {
   const app = await NestFactory.createApplicationContext(AppModule);
   const usersService = app.get(UsersService);
 
-  const adminEmail = 'admin@goszalupa.ru';
+  const adminEmail = 'admin@gos.ru';
 
   try {
     // Находим администратора

@@ -74,7 +74,7 @@ export class ProgramsService {
     return await this.programRepository.save(program);
   }
 
-  async findAll(query: ProgramQueryDto, user: User): Promise<{ programs: Program[]; total: number }> {
+  async findAll(query: ProgramQueryDto, user: User): Promise<{ data: Program[]; total: number }> {
     const {
       status,
       authorId,
@@ -123,9 +123,9 @@ export class ProgramsService {
     const skip = (page - 1) * limit;
     queryBuilder.skip(skip).take(limit);
 
-    const [programs, total] = await queryBuilder.getManyAndCount();
+    const [data, total] = await queryBuilder.getManyAndCount();
 
-    return { programs, total };
+    return { data, total };
   }
 
   async findOne(id: string, user: User): Promise<Program> {

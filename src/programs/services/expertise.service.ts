@@ -70,7 +70,7 @@ export class ExpertiseService {
     return await this.expertiseRepository.save(expertise);
   }
 
-  async findAll(query: ExpertiseQueryDto, user: User): Promise<{ expertises: Expertise[]; total: number }> {
+  async findAll(query: ExpertiseQueryDto, user: User): Promise<{ data: Expertise[]; total: number }> {
     const {
       status,
       expertId,
@@ -118,9 +118,9 @@ export class ExpertiseService {
     const skip = (page - 1) * limit;
     queryBuilder.skip(skip).take(limit);
 
-    const [expertises, total] = await queryBuilder.getManyAndCount();
+    const [data, total] = await queryBuilder.getManyAndCount();
 
-    return { expertises, total };
+    return { data, total };
   }
 
   async findOne(id: string, user: User): Promise<Expertise> {
@@ -220,7 +220,7 @@ export class ExpertiseService {
     return await this.create(createDto, admin);
   }
 
-  async getMyExpertises(expert: User, query: ExpertiseQueryDto): Promise<{ expertises: Expertise[]; total: number }> {
+  async getMyExpertises(expert: User, query: ExpertiseQueryDto): Promise<{ data: Expertise[]; total: number }> {
     if (!this.hasRole(expert, UserRole.EXPERT)) {
       throw new ForbiddenException('Только эксперты могут просматривать свои экспертизы');
     }

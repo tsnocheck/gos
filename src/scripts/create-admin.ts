@@ -8,7 +8,7 @@ async function createAdminUser() {
   const app = await NestFactory.createApplicationContext(AppModule);
   const usersService = app.get(UsersService);
 
-  const adminEmail = 'admin@goszalupa.ru';
+  const adminEmail = 'admin@gos.ru';
   const adminPassword = 'admin123456'; // В продакшене должен быть сильный пароль
 
   try {
