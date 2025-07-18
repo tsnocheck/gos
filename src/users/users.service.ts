@@ -110,4 +110,72 @@ export class UsersService {
       where: { status: UserStatus.ACTIVE } 
     });
   }
+
+  // Административные методы
+  async findAllUsers(): Promise<User[]> {
+    return this.userRepository.find({
+      order: { createdAt: 'DESC' }
+    });
+  }
+
+  async updateUserStatus(id: string, status: UserStatus): Promise<User> {
+    const user = await this.findOne(id);
+    user.status = status;
+    return this.userRepository.save(user);
+  }
+
+  async softDeleteUser(id: string): Promise<User> {
+    const user = await this.findOne(id);
+    user.status = UserStatus.INACTIVE;
+    return this.userRepository.save(user);
+  }
+
+  async hardDeleteUser(id: string): Promise<void> {
+    const user = await this.findOne(id);
+    await this.userRepository.remove(user);
+  }
+
+  async resetUserPassword(id: string): Promise<{ password: string; user: User }> {
+    const user = await this.findOne(id);
+    // Генерируем временный пароль
+    const tempPassword = Math.random().toString(36).slice(-12);
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    
+    user.password = hashedPassword;
+    const updatedUser = await this.userRepository.save(user);
+    
+    return { password: tempPassword, user: updatedUser };
+  }
+
+  async getUserStats(): Promise<{
+    total: number;
+    active: number;
+    inactive: number;
+    archived: number;
+  }> {
+    const [total, active, inactive, archived] = await Promise.all([
+      this.userRepository.count(),
+      this.userRepository.count({ where: { status: UserStatus.ACTIVE } }),
+      this.userRepository.count({ where: { status: UserStatus.INACTIVE } }),
+      this.userRepository.count({ where: { status: UserStatus.ARCHIVED } }),
+    ]);
+
+    return { total, active, inactive, archived };
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<User> {
+    const user = await this.findOne(userId);
+    
+    // Проверяем текущий пароль
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      throw new Error('Invalid current password');
+    }
+
+    // Устанавливаем новый пароль
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    
+    return this.userRepository.save(user);
+  }
 }

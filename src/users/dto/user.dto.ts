@@ -47,3 +47,12 @@ export class UpdateUserDto {
   @IsString()
   academicDegree?: string; // Ученая степень
 }
+
+export class ChangePasswordDto {
+  @IsString()
+  currentPassword: string;
+
+  @IsString()
+  @MinLength(6)
+  newPassword: string;
+}

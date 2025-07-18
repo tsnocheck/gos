@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { Candidate, CandidateStatus } from '../entities/candidate.entity';
 import { User } from '../entities/user.entity';
 import { UserRole } from '../enums/user.enum';
@@ -262,5 +263,89 @@ export class CandidateService {
       rejected,
       conversionRate: total > 0 ? Math.round((registered / total) * 100) : 0
     };
+  }
+
+  // Создание кандидата для публичной регистрации (без админа)
+  async createPublicCandidate(candidateData: any): Promise<Candidate> {
+    // Проверяем, что пользователь с таким email еще не зарегистрирован
+    const existingUser = await this.userRepository.findOne({
+      where: { email: candidateData.email }
+    });
+    if (existingUser) {
+      throw new ConflictException('Пользователь с таким email уже зарегистрирован');
+    }
+
+    // Проверяем, что кандидат с таким email еще не добавлен
+    const existingCandidate = await this.candidateRepository.findOne({
+      where: { email: candidateData.email }
+    });
+    if (existingCandidate) {
+      throw new ConflictException('Заявка с таким email уже подана');
+    }
+
+    const newCandidate = {
+      ...candidateData,
+      status: CandidateStatus.PENDING,
+    };
+
+    const candidate = await this.candidateRepository.save(newCandidate);
+    return candidate;
+  }
+
+  // Одобрение кандидата с созданием пользователя
+  async approveCandidate(id: string, admin: User): Promise<{ user: User; password: string }> {
+    if (!admin.roles.includes(UserRole.ADMIN)) {
+      throw new ForbiddenException('Только администраторы могут одобрять кандидатов');
+    }
+
+    const candidate = await this.findById(id, admin);
+
+    if (candidate.status !== CandidateStatus.PENDING && candidate.status !== CandidateStatus.INVITED) {
+      throw new BadRequestException('Можно одобрить только кандидатов со статусом "ожидает" или "приглашен"');
+    }
+
+    // Генерируем временный пароль
+    const temporaryPassword = this.generateTemporaryPassword();
+
+    // Хэшируем пароль
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+
+    // Создаем пользователя на основе данных кандидата
+    const user = this.userRepository.create({
+      email: candidate.email,
+      password: hashedPassword,
+      firstName: candidate.firstName,
+      lastName: candidate.lastName,
+      middleName: candidate.middleName,
+      phone: candidate.phone,
+      roles: candidate.proposedRoles as UserRole[],
+    });
+
+    const savedUser = await this.userRepository.save(user);
+
+    // Обновляем статус кандидата
+    candidate.status = CandidateStatus.REGISTERED;
+    candidate.registeredUserId = savedUser.id;
+    await this.candidateRepository.save(candidate);
+
+    // Отправляем email с данными для входа
+    await this.emailService.sendLoginCredentials(
+      savedUser.email,
+      savedUser.firstName,
+      temporaryPassword
+    );
+
+    return { user: savedUser, password: temporaryPassword };
+  }
+
+  // Генерация временного пароля
+  private generateTemporaryPassword(): string {
+    const length = 12;
+    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return password;
   }
 }

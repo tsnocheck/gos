@@ -89,6 +89,18 @@ export class Program {
   @Column('text', { nullable: true })
   rejectionReason: string; // Причина отклонения
 
+  @Column({ nullable: true })
+  fileName: string; // Оригинальное имя файла
+
+  @Column({ nullable: true })
+  filePath: string; // Путь к файлу на диске
+
+  @Column({ nullable: true })
+  fileSize: number; // Размер файла в байтах
+
+  @Column({ nullable: true })
+  mimeType: string; // MIME тип файла
+
   // Связи
   @ManyToOne(() => User, { eager: true })
   @JoinColumn({ name: 'authorId' })

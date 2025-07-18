@@ -71,4 +71,32 @@ ${registrationLink}
 ==================================
     `);
   }
+
+  async sendLoginCredentials(email: string, firstName: string, password: string): Promise<void> {
+    const baseUrl = this.configService.get('BASE_URL', 'http://localhost:3001');
+    const loginLink = `${baseUrl}/auth/login`;
+    
+    console.log(`
+=== LOGIN CREDENTIALS EMAIL ===
+To: ${email}
+Subject: Ваша заявка одобрена - данные для входа в систему
+
+Здравствуйте, ${firstName}!
+
+Ваша заявка на регистрацию в системе была одобрена администратором.
+
+Данные для входа в систему:
+Email: ${email}
+Пароль: ${password}
+
+Для входа в систему перейдите по ссылке:
+${loginLink}
+
+ВАЖНО: Рекомендуем изменить пароль после первого входа в систему.
+
+С уважением,
+Администрация системы
+===============================
+    `);
+  }
 }

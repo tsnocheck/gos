@@ -34,6 +34,18 @@ export class Candidate {
   @Column({ nullable: true })
   position?: string;
 
+  @Column({ nullable: true })
+  workplace?: string;
+
+  @Column({ nullable: true })
+  department?: string;
+
+  @Column({ type: 'simple-array', nullable: true })
+  subjects?: string[];
+
+  @Column({ nullable: true })
+  academicDegree?: string;
+
   @Column({ type: 'simple-array' })
   proposedRoles: string[];
 

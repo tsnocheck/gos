@@ -10,7 +10,15 @@ import {
   UseGuards,
   Request,
   ParseUUIDPipe,
+  UseInterceptors,
+  UploadedFile,
+  Res,
+  NotFoundException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Express } from 'express';
+import { Response } from 'express';
+import * as path from 'path';
 import { ProgramsService } from '../services/programs.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -34,8 +42,13 @@ export class ProgramsController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles(UserRole.AUTHOR, UserRole.ADMIN)
-  async create(@Body() createProgramDto: CreateProgramDto, @Request() req) {
-    return await this.programsService.create(createProgramDto, req.user);
+  @UseInterceptors(FileInterceptor('file'))
+  async create(
+    @Body() createProgramDto: CreateProgramDto, 
+    @Request() req,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return await this.programsService.create(createProgramDto, req.user, file);
   }
 
   @Get()
@@ -203,5 +216,10 @@ export class ProgramsController {
   async remove(@Param('id', ParseUUIDPipe) id: string, @Request() req) {
     await this.programsService.remove(id, req.user);
     return { message: 'Программа успешно удалена' };
+  }
+
+  @Get(':id/download')
+  async downloadFile(@Param('id', ParseUUIDPipe) id: string, @Request() req, @Res() res: Response) {
+    return await this.programsService.downloadFile(id, req.user, res);
   }
 }

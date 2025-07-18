@@ -8,6 +8,7 @@ import { ProgramsService } from './services/programs.service';
 import { ExpertiseService } from './services/expertise.service';
 import { RecommendationsService } from './services/recommendations.service';
 import { ExpertAssignmentService } from './services/expert-assignment.service';
+import { FileService } from './services/file.service';
 import { ProgramsController } from './controllers/programs.controller';
 import { ExpertiseController } from './controllers/expertise.controller';
 import { RecommendationsController } from './controllers/recommendations.controller';
@@ -28,12 +29,14 @@ import { UsersModule } from '../users/users.module';
     ExpertiseService,
     RecommendationsService,
     ExpertAssignmentService,
+    FileService,
   ],
   exports: [
     ProgramsService,
     ExpertiseService,
     RecommendationsService,
     ExpertAssignmentService,
+    FileService,
   ],
 })
 export class ProgramsModule {}

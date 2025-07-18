@@ -89,4 +89,22 @@ export class CandidateController {
     await this.candidateService.deleteCandidate(id, req.user);
     return { message: 'Кандидат удален' };
   }
+
+  // Одобрение кандидата (создание пользователя)
+  @Post(':id/approve')
+  @Roles(UserRole.ADMIN)
+  async approveCandidate(@Param('id', ParseUUIDPipe) id: string, @Req() req) {
+    const result = await this.candidateService.approveCandidate(id, req.user);
+    return {
+      message: 'Кандидат одобрен, пользователь создан',
+      user: {
+        id: result.user.id,
+        email: result.user.email,
+        firstName: result.user.firstName,
+        lastName: result.user.lastName,
+        roles: result.user.roles
+      },
+      temporaryPassword: result.password
+    };
+  }
 }

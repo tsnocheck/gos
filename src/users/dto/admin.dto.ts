@@ -114,3 +114,8 @@ export class RemoveRoleDto {
   @IsEnum(UserRole)
   role: UserRole;
 }
+
+export class UpdateUserStatusDto {
+  @IsEnum(UserStatus)
+  status: UserStatus;
+}

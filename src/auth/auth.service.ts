@@ -3,15 +3,18 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UsersService } from '../users/users.service';
+import { CandidateService } from '../users/services/candidate.service';
 import { Session } from './entities/session.entity';
 import { LoginDto } from './dto/auth.dto';
 import { CreateUserDto } from '../users/dto/user.dto';
+import { RegisterCandidateDto } from '../users/dto/candidate.dto';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class AuthService {
   constructor(
     private usersService: UsersService,
+    private candidateService: CandidateService,
     private jwtService: JwtService,
     @InjectRepository(Session)
     private sessionRepository: Repository<Session>,
@@ -116,5 +119,28 @@ export class AuthService {
     }
 
     return { message: 'Password reset successfully' };
+  }
+
+  async registerCandidate(registerCandidateDto: RegisterCandidateDto) {
+    // Проверяем, что пользователь с таким email не существует
+    const existingUser = await this.usersService.findByEmail(registerCandidateDto.email);
+    if (existingUser) {
+      throw new UnauthorizedException('Пользователь с таким email уже зарегистрирован');
+    }
+
+    // Создаем заявку кандидата для рассмотрения администратором
+    const candidateData = {
+      ...registerCandidateDto,
+      proposedRoles: ['author'], // Роль по умолчанию для самостоятельной регистрации
+      comment: 'Самостоятельная регистрация'
+    };
+
+    // Создаем кандидата напрямую (без проверки admin.roles, так как это публичная регистрация)
+    const candidate = await this.candidateService.createPublicCandidate(candidateData);
+
+    return {
+      message: 'Заявка на регистрацию подана. Ожидайте рассмотрения администратором.',
+      candidateId: candidate.id
+    };
   }
 }

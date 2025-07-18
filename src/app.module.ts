@@ -8,6 +8,7 @@ import { UsersModule } from './users/users.module';
 import { DictionariesModule } from './dictionaries/dictionaries.module';
 import { ProgramsModule } from './programs/programs.module';
 import { User } from './users/entities/user.entity';
+import { Candidate } from './users/entities/candidate.entity';
 import { Session } from './auth/entities/session.entity';
 import { Dictionary } from './dictionaries/entities/dictionary.entity';
 import { Program } from './programs/entities/program.entity';
@@ -28,7 +29,7 @@ import { Recommendation } from './programs/entities/recommendation.entity';
         username: configService.get('DB_USERNAME', 'postgres'),
         password: configService.get('DB_PASSWORD', 'password'),
         database: configService.get('DB_NAME', 'goszalupa'),
-        entities: [User, Session, Dictionary, Program, Expertise, Recommendation],
+        entities: [User, Candidate, Session, Dictionary, Program, Expertise, Recommendation],
         synchronize: true,
       }),
       inject: [ConfigService],

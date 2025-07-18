@@ -10,6 +10,20 @@ export class CreateCandidateDto {
   comment?: string;
 }
 
+// DTO для регистрации кандидатов пользователями (не админами)
+export class RegisterCandidateDto {
+  email: string;
+  firstName: string;
+  lastName: string;
+  middleName?: string;
+  phone?: string;
+  position?: string;
+  workplace?: string;
+  department?: string;
+  subjects?: string[];
+  academicDegree?: string;
+}
+
 export class UpdateCandidateDto {
   firstName?: string;
   lastName?: string;

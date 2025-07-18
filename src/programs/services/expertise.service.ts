@@ -25,7 +25,7 @@ export class ExpertiseService {
   ) {}
 
   async create(createExpertiseDto: CreateExpertiseDto, assignedBy: User): Promise<Expertise> {
-    if (assignedBy.roles.includes(UserRole.ADMIN)) {
+    if (this.hasRole(assignedBy, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут назначать экспертизы');
     }
 
@@ -89,7 +89,7 @@ export class ExpertiseService {
       .leftJoinAndSelect('program.author', 'author');
 
     // Фильтрация для экспертов - только их экспертизы
-    if ((user.roles.includes(UserRole.EXPERT))) {
+    if (this.hasRole(user, UserRole.EXPERT)) {
       queryBuilder.andWhere('expertise.expertId = :userId', { userId: user.id });
     }
 
@@ -134,11 +134,11 @@ export class ExpertiseService {
     }
 
     // Проверка доступа
-    if ((user.roles.includes(UserRole.EXPERT)) && expertise.expertId !== user.id) {
+    if (this.hasRole(user, UserRole.EXPERT) && expertise.expertId !== user.id) {
       throw new ForbiddenException('Нет доступа к этой экспертизе');
     }
 
-    if ((user.roles.includes(UserRole.AUTHOR) && !user.roles.includes(UserRole.ADMIN) && !user.roles.includes(UserRole.EXPERT)) && expertise.program.authorId !== user.id) {
+    if (this.isOnlyAuthor(user) && expertise.program.authorId !== user.id) {
       throw new ForbiddenException('Нет доступа к этой экспертизе');
     }
 
@@ -149,11 +149,11 @@ export class ExpertiseService {
     const expertise = await this.findOne(id, user);
 
     // Только эксперт или админ могут обновлять экспертизу
-    if ((user.roles.includes(UserRole.EXPERT)) && expertise.expertId !== user.id) {
+    if (this.hasRole(user, UserRole.EXPERT) && expertise.expertId !== user.id) {
       throw new ForbiddenException('Нет доступа к редактированию этой экспертизы');
     }
 
-    if ((user.roles.includes(UserRole.AUTHOR) && !user.roles.includes(UserRole.ADMIN) && !user.roles.includes(UserRole.EXPERT))) {
+    if (this.isOnlyAuthor(user)) {
       throw new ForbiddenException('Авторы не могут редактировать экспертизы');
     }
 
@@ -162,7 +162,7 @@ export class ExpertiseService {
     }
 
     // Обновляем статус на "в процессе" если эксперт начал работу
-    if (expertise.status === ExpertiseStatus.PENDING && (user.roles.includes(UserRole.EXPERT))) {
+    if (expertise.status === ExpertiseStatus.PENDING && this.hasRole(user, UserRole.EXPERT)) {
       expertise.status = ExpertiseStatus.IN_PROGRESS;
     }
 
@@ -175,7 +175,7 @@ export class ExpertiseService {
   }
 
   async complete(id: string, completeDto: CompleteExpertiseDto, expert: User): Promise<Expertise> {
-    if (!expert.roles.includes(UserRole.EXPERT)) {
+    if (!this.hasRole(expert, UserRole.EXPERT)) {
       throw new ForbiddenException('Только эксперты могут завершать экспертизы');
     }
 
@@ -207,7 +207,7 @@ export class ExpertiseService {
   }
 
   async assignExpert(programId: string, assignDto: AssignExpertDto, admin: User): Promise<Expertise> {
-    if (admin.roles.includes(UserRole.ADMIN)) {
+    if (this.hasRole(admin, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут назначать экспертов');
     }
 
@@ -221,7 +221,7 @@ export class ExpertiseService {
   }
 
   async getMyExpertises(expert: User, query: ExpertiseQueryDto): Promise<{ expertises: Expertise[]; total: number }> {
-    if (!expert.roles.includes(UserRole.EXPERT)) {
+    if (!this.hasRole(expert, UserRole.EXPERT)) {
       throw new ForbiddenException('Только эксперты могут просматривать свои экспертизы');
     }
 
@@ -230,7 +230,7 @@ export class ExpertiseService {
 
   // 3.3 Получение всех ДПП ПК, по которым проводилась экспертиза (для экспертов)
   async getExpertPrograms(expertUser: User): Promise<Program[]> {
-    if (!expertUser.roles.includes(UserRole.EXPERT) && expertUser.roles.includes(UserRole.ADMIN)) {
+    if (!this.hasRole(expertUser, UserRole.EXPERT) && this.hasRole(expertUser, UserRole.ADMIN)) {
       throw new ForbiddenException('Только эксперты могут просматривать свои программы для экспертизы');
     }
 
@@ -260,7 +260,7 @@ export class ExpertiseService {
     dateTo?: Date;
     result?: 'positive' | 'negative';
   }): Promise<any[]> {
-    if (!expert.roles.includes(UserRole.EXPERT)) {
+    if (!this.hasRole(expert, UserRole.EXPERT)) {
       throw new ForbiddenException('Только эксперты могут просматривать свои экспертизы');
     }
 
@@ -326,7 +326,7 @@ export class ExpertiseService {
 
   // Получение доступных для экспертизы программ
   async getAvailablePrograms(expertUser: User): Promise<Program[]> {
-    if (!expertUser.roles.includes(UserRole.EXPERT) && expertUser.roles.includes(UserRole.ADMIN)) {
+    if (!this.hasRole(expertUser, UserRole.EXPERT) && this.hasRole(expertUser, UserRole.ADMIN)) {
       throw new ForbiddenException('Только эксперты могут просматривать программы для экспертизы');
     }
 
@@ -365,7 +365,7 @@ export class ExpertiseService {
       throw new NotFoundException('Экспертиза не найдена');
     }
 
-    if (!expertUser.roles.includes(UserRole.EXPERT) && !expertUser.roles.includes(UserRole.ADMIN) && expertise.expertId !== expertUser.id) {
+    if (!this.hasRole(expertUser, UserRole.EXPERT) && !this.hasRole(expertUser, UserRole.ADMIN) && expertise.expertId !== expertUser.id) {
       throw new ForbiddenException('Вы можете работать только со своими экспертизами');
     }
 
@@ -373,7 +373,7 @@ export class ExpertiseService {
   }
 
   async remove(id: string, admin: User): Promise<void> {
-    if (admin.roles.includes(UserRole.ADMIN)) {
+    if (this.hasRole(admin, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут удалять экспертизы');
     }
 
@@ -385,7 +385,7 @@ export class ExpertiseService {
     const queryBuilder = this.expertiseRepository.createQueryBuilder('expertise');
 
     // Для экспертов показываем только их статистику
-    if ((user.roles.includes(UserRole.EXPERT))) {
+    if (this.hasRole(user, UserRole.EXPERT)) {
       queryBuilder.where('expertise.expertId = :userId', { userId: user.id });
     }
 
@@ -442,7 +442,7 @@ export class ExpertiseService {
 
   // 1.8 Замена эксперта в случае необходимости
   async replaceExpert(expertiseId: string, oldExpertId: string, newExpertId: string, admin: User): Promise<Expertise> {
-    if (!admin.roles.includes(UserRole.ADMIN)) {
+    if (!this.hasRole(admin, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут заменять экспертов');
     }
 
@@ -479,7 +479,7 @@ export class ExpertiseService {
 
   // Получение экспертиз для замены экспертов (административная функция)
   async getExpertisesForReplacement(admin: User): Promise<Expertise[]> {
-    if (!admin.roles.includes(UserRole.ADMIN)) {
+    if (!this.hasRole(admin, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут просматривать экспертизы для замены');
     }
 
@@ -495,7 +495,7 @@ export class ExpertiseService {
 
   // Массовая замена эксперта во всех его экспертизах
   async replaceExpertInAllExpertises(oldExpertId: string, newExpertId: string, admin: User): Promise<number> {
-    if (!admin.roles.includes(UserRole.ADMIN)) {
+    if (!this.hasRole(admin, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут заменять экспертов');
     }
 
@@ -596,5 +596,17 @@ export class ExpertiseService {
     // Здесь должна быть логика генерации PDF
     // Пока возвращаем заглушку
     throw new BadRequestException('Генерация PDF пока не реализована');
+  }
+
+  private hasRole(user: User, role: UserRole): boolean {
+    return user && user.roles && Array.isArray(user.roles) && user.roles.includes(role);
+  }
+
+  private hasAnyRole(user: User, roles: UserRole[]): boolean {
+    return user && user.roles && Array.isArray(user.roles) && roles.some(role => user.roles.includes(role));
+  }
+
+  private isOnlyAuthor(user: User): boolean {
+    return this.hasRole(user, UserRole.AUTHOR) && !this.hasRole(user, UserRole.ADMIN) && !this.hasRole(user, UserRole.EXPERT);
   }
 }

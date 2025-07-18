@@ -11,6 +11,7 @@ import {
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/auth.dto';
 import { CreateUserDto } from '../users/dto/user.dto';
+import { RegisterCandidateDto } from '../users/dto/candidate.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Response as ExpressResponse } from 'express';
@@ -114,5 +115,10 @@ export class AuthController {
   @Post('reset-password')
   async resetPassword(@Body() resetPasswordDto: { token: string; newPassword: string }) {
     return this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.newPassword);
+  }
+
+  @Post('register-candidate')
+  async registerCandidate(@Body() registerCandidateDto: RegisterCandidateDto) {
+    return this.authService.registerCandidate(registerCandidateDto);
   }
 }

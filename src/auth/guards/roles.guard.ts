@@ -22,12 +22,33 @@ export class RolesGuard implements CanActivate {
     }
 
     const { user } = context.switchToHttp().getRequest();
-    if (!user || !user.userId) {
+    
+    // Проверяем, что пользователь существует и имеет роли
+    if (!user) {
+      console.log('RolesGuard: No user found in request');
+      return false;
+    }
+
+    // Если пользователь уже полностью загружен JWT стратегией, используем его
+    if (user.roles && Array.isArray(user.roles)) {
+      console.log('RolesGuard: User roles from JWT:', user.roles);
+      console.log('RolesGuard: Required roles:', requiredRoles);
+      return requiredRoles.some((role) => user.roles.includes(role));
+    }
+
+    // Если роли не загружены, загружаем пользователя
+    if (!user.userId) {
+      console.log('RolesGuard: No userId found');
       return false;
     }
 
     const fullUser = await this.usersService.findOne(user.userId);
-    // Обновлено для поддержки множественных ролей
+    if (!fullUser || !fullUser.roles) {
+      console.log('RolesGuard: Could not load full user or roles');
+      return false;
+    }
+
+    console.log('RolesGuard: Full user roles:', fullUser.roles);
     return requiredRoles.some((role) => fullUser.roles.includes(role));
   }
 }

@@ -6,6 +6,8 @@ import { Expertise } from '../entities/expertise.entity';
 import { User } from '../../users/entities/user.entity';
 import { UserRole } from '../../users/enums/user.enum';
 import { ProgramStatus } from '../enums/program.enum';
+import { Express } from 'express';
+import { FileService } from './file.service';
 import {
   CreateProgramDto,
   UpdateProgramDto,
@@ -21,20 +23,54 @@ export class ProgramsService {
   constructor(
     @InjectRepository(Program)
     private readonly programRepository: Repository<Program>,
+    private readonly fileService: FileService,
   ) {}
 
-  async create(createProgramDto: CreateProgramDto, author: User): Promise<Program> {
-    if (!author.roles.includes(UserRole.AUTHOR) && !author.roles.includes(UserRole.ADMIN)) {
+  private hasRole(user: User, role: UserRole): boolean {
+    return user && user.roles && Array.isArray(user.roles) && user.roles.includes(role);
+  }
+
+  private hasAnyRole(user: User, roles: UserRole[]): boolean {
+    return user && user.roles && Array.isArray(user.roles) && roles.some(role => user.roles.includes(role));
+  }
+
+  private isOnlyAuthor(user: User): boolean {
+    return this.hasRole(user, UserRole.AUTHOR) && !this.hasRole(user, UserRole.ADMIN) && !this.hasRole(user, UserRole.EXPERT);
+  }
+
+  async create(createProgramDto: CreateProgramDto, author: User, file?: Express.Multer.File): Promise<Program> {
+    if (!this.hasAnyRole(author, [UserRole.AUTHOR, UserRole.ADMIN])) {
       throw new ForbiddenException('Только авторы и администраторы могут создавать программы');
     }
 
-    const program = this.programRepository.create({
+    let fileData: {
+      fileName: string;
+      filePath: string;
+      fileSize: number;
+      mimeType: string;
+    } | undefined;
+
+    if (file) {
+      fileData = await this.fileService.saveFile(file);
+    }
+
+    const programData = {
       ...createProgramDto,
       authorId: author.id,
       status: ProgramStatus.DRAFT,
       version: 1,
-    });
+    };
 
+    if (fileData) {
+      Object.assign(programData, {
+        fileName: fileData.fileName,
+        filePath: fileData.filePath,
+        fileSize: fileData.fileSize,
+        mimeType: fileData.mimeType,
+      });
+    }
+
+    const program = this.programRepository.create(programData);
     return await this.programRepository.save(program);
   }
 
@@ -65,7 +101,7 @@ export class ProgramsService {
     }
 
     // Для авторов показываем только их программы
-    if (user.roles.includes(UserRole.AUTHOR) && !user.roles.includes(UserRole.ADMIN) && !user.roles.includes(UserRole.EXPERT)) {
+    if (this.isOnlyAuthor(user)) {
       queryBuilder.andWhere('program.authorId = :userId', { userId: user.id });
     }
 
@@ -103,7 +139,7 @@ export class ProgramsService {
     }
 
     // Проверка доступа
-    if ((user.roles.includes(UserRole.AUTHOR) && !user.roles.includes(UserRole.ADMIN) && !user.roles.includes(UserRole.EXPERT)) && program.authorId !== user.id) {
+    if (this.isOnlyAuthor(user) && program.authorId !== user.id) {
       throw new ForbiddenException('Нет доступа к этой программе');
     }
 
@@ -119,7 +155,7 @@ export class ProgramsService {
     }
 
     // Проверка прав
-    if ((user.roles.includes(UserRole.AUTHOR) && !user.roles.includes(UserRole.ADMIN) && !user.roles.includes(UserRole.EXPERT)) && program.authorId !== user.id) {
+    if (this.isOnlyAuthor(user) && program.authorId !== user.id) {
       throw new ForbiddenException('Нет доступа к редактированию этой программы');
     }
 
@@ -134,7 +170,7 @@ export class ProgramsService {
       throw new BadRequestException('Можно отправить на экспертизу только черновики или отклоненные программы');
     }
 
-    if ((user.roles.includes(UserRole.AUTHOR) && !user.roles.includes(UserRole.ADMIN) && !user.roles.includes(UserRole.EXPERT)) && program.authorId !== user.id) {
+    if (this.isOnlyAuthor(user) && program.authorId !== user.id) {
       throw new ForbiddenException('Нет доступа к отправке этой программы');
     }
 
@@ -145,7 +181,7 @@ export class ProgramsService {
   }
 
   async approve(id: string, approveDto: ApproveProgramDto, admin: User): Promise<Program> {
-    if (!admin.roles.includes(UserRole.ADMIN)) {
+    if (!this.hasRole(admin, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут одобрять программы');
     }
 
@@ -163,7 +199,7 @@ export class ProgramsService {
   }
 
   async reject(id: string, rejectDto: RejectProgramDto, admin: User): Promise<Program> {
-    if (!admin.roles.includes(UserRole.ADMIN)) {
+    if (!this.hasRole(admin, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут отклонять программы');
     }
 
@@ -180,7 +216,7 @@ export class ProgramsService {
   }
 
   async archive(id: string, admin: User): Promise<Program> {
-    if (!admin.roles.includes(UserRole.ADMIN)) {
+    if (!this.hasRole(admin, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут архивировать программы');
     }
 
@@ -198,7 +234,7 @@ export class ProgramsService {
       throw new BadRequestException('Можно создать версию только одобренной программы');
     }
 
-    if ((user.roles.includes(UserRole.AUTHOR) && !user.roles.includes(UserRole.ADMIN) && !user.roles.includes(UserRole.EXPERT)) && originalProgram.authorId !== user.id) {
+    if (this.isOnlyAuthor(user) && originalProgram.authorId !== user.id) {
       throw new ForbiddenException('Нет доступа к созданию версии этой программы');
     }
 
@@ -244,7 +280,7 @@ export class ProgramsService {
   }
 
   async remove(id: string, admin: User): Promise<void> {
-    if (!admin.roles.includes(UserRole.ADMIN)) {
+    if (!this.hasRole(admin, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут удалять программы');
     }
 
@@ -256,7 +292,7 @@ export class ProgramsService {
     const queryBuilder = this.programRepository.createQueryBuilder('program');
 
     // Для авторов показываем только их статистику
-    if ((user.roles.includes(UserRole.AUTHOR) && !user.roles.includes(UserRole.ADMIN) && !user.roles.includes(UserRole.EXPERT))) {
+    if (this.isOnlyAuthor(user)) {
       queryBuilder.where('program.authorId = :userId', { userId: user.id });
     }
 
@@ -290,7 +326,7 @@ export class ProgramsService {
 
   // 1.5 Отправка программ в архив и возвращение из архива (для администратора)
   async archiveProgram(id: string, adminUser: User): Promise<Program> {
-    if (!adminUser.roles.includes(UserRole.ADMIN)) {
+    if (!this.hasRole(adminUser, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут архивировать программы');
     }
 
@@ -307,7 +343,7 @@ export class ProgramsService {
   }
 
   async unarchiveProgram(id: string, adminUser: User): Promise<Program> {
-    if (!adminUser.roles.includes(UserRole.ADMIN)) {
+    if (!this.hasRole(adminUser, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут извлекать программы из архива');
     }
 
@@ -326,7 +362,7 @@ export class ProgramsService {
 
   // Получение архивированных программ
   async getArchivedPrograms(adminUser: User): Promise<Program[]> {
-    if (!adminUser.roles.includes(UserRole.ADMIN)) {
+    if (!this.hasRole(adminUser, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут просматривать архив программ');
     }
 
@@ -342,7 +378,7 @@ export class ProgramsService {
     const program = await this.findOne(programId, user);
     
     // Проверяем права доступа
-    if ((user.roles.includes(UserRole.AUTHOR) && !user.roles.includes(UserRole.ADMIN) && !user.roles.includes(UserRole.EXPERT)) && program.authorId !== user.id) {
+    if (this.isOnlyAuthor(user) && program.authorId !== user.id) {
       throw new ForbiddenException('Вы можете просматривать только заключения по своим программам');
     }
 
@@ -450,5 +486,24 @@ export class ProgramsService {
 
     // Можно редактировать только черновики
     return program.status === ProgramStatus.DRAFT;
+  }
+
+  async downloadFile(id: string, user: User, res: any): Promise<void> {
+    const program = await this.findOne(id, user);
+    
+    if (!program.filePath) {
+      throw new NotFoundException('Файл не найден для этой программы');
+    }
+
+    if (!this.fileService.fileExists(program.filePath)) {
+      throw new NotFoundException('Файл не существует на диске');
+    }
+
+    const filePath = this.fileService.getFilePath(program.filePath);
+    
+    res.setHeader('Content-Disposition', `attachment; filename="${program.fileName}"`);
+    res.setHeader('Content-Type', program.mimeType || 'application/octet-stream');
+    
+    return res.sendFile(filePath);
   }
 }
