@@ -1,22 +1,25 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Patch, 
-  Param, 
-  Delete, 
-  UseGuards,
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
   Request,
-  Query
+  UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto, ChangePasswordDto } from './dto/user.dto';
+import {
+  ChangePasswordDto,
+  CreateUserDto,
+  UpdateUserDto,
+} from './dto/user.dto';
 import { AdminUpdateUserDto, UpdateUserStatusDto } from './dto/admin.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { UserRole, UserStatus } from './enums/user.enum';
+import { UserRole } from './enums/user.enum';
 
 @Controller('users')
 export class UsersController {
@@ -30,22 +33,22 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @Get('profile')
   getProfile(@Request() req) {
-    return this.usersService.findOne(req.user.userId);
+    return this.usersService.findOne(req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch('profile')
   updateProfile(@Request() req, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(req.user.userId, updateUserDto);
+    return this.usersService.update(req.user.id, updateUserDto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch('profile/password')
   changePassword(@Request() req, @Body() changePasswordDto: ChangePasswordDto) {
     return this.usersService.changePassword(
-      req.user.userId, 
-      changePasswordDto.currentPassword, 
-      changePasswordDto.newPassword
+      req.user.id,
+      changePasswordDto.currentPassword,
+      changePasswordDto.newPassword,
     );
   }
 
@@ -79,14 +82,20 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Patch('admin/:id')
-  adminUpdateUser(@Param('id') id: string, @Body() updateUserDto: AdminUpdateUserDto) {
+  adminUpdateUser(
+    @Param('id') id: string,
+    @Body() updateUserDto: AdminUpdateUserDto,
+  ) {
     return this.usersService.update(id, updateUserDto);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Patch('admin/:id/status')
-  updateUserStatus(@Param('id') id: string, @Body() statusDto: UpdateUserStatusDto) {
+  updateUserStatus(
+    @Param('id') id: string,
+    @Body() statusDto: UpdateUserStatusDto,
+  ) {
     return this.usersService.updateUserStatus(id, statusDto.status);
   }
 
