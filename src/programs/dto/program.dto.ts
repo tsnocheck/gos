@@ -1,5 +1,6 @@
 import { IsString, IsOptional, IsEnum, IsInt, IsUUID, IsDateString, IsBoolean, IsArray, Min, Max } from 'class-validator';
 import { ProgramStatus, ProgramSection } from '../enums/program.enum';
+import { Type } from 'class-transformer';
 
 export class CreateProgramDto {
   @IsString()
@@ -186,5 +187,6 @@ export class ProgramQueryDto {
   @IsInt()
   @Min(1)
   @Max(100)
+  @Type(() => Number)
   limit?: number;
 }

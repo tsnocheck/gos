@@ -109,7 +109,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   getProfile(@Request() req) {
-    return { userId: req.user.userId, sessionKey: req.user.sessionKey };
+    return { userId: req.user.id, sessionKey: req.user.sessionKey };
   }
 
   @Post('reset-password')
