@@ -55,6 +55,14 @@ export class ExpertiseController {
     return await this.expertiseService.getStatistics(req.user);
   }
 
+  // Получение экспертиз для замены (административная функция)
+  @Get('for-replacement')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getExpertisesForReplacement(@Req() req) {
+    return this.expertiseService.getExpertisesForReplacement(req.user);
+  }
+
   @Get(':id')
   async findOne(@Param('id', ParseUUIDPipe) id: string, @Request() req) {
     return await this.expertiseService.findOne(id, req.user);
@@ -90,7 +98,11 @@ export class ExpertiseController {
     @Body() assignDto: AssignExpertDto,
     @Request() req,
   ) {
-    return await this.expertiseService.assignExpert(programId, assignDto, req.user);
+    return await this.expertiseService.assignExpert(
+      programId,
+      assignDto,
+      req.user,
+    );
   }
 
   @Delete(':id')
@@ -113,7 +125,10 @@ export class ExpertiseController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.EXPERT, UserRole.ADMIN)
   async getMyExpertisesList(@Query('status') status: string, @Request() req) {
-    return await this.expertiseService.getExpertExpertises(req.user, status as any);
+    return await this.expertiseService.getExpertExpertises(
+      req.user,
+      status as any,
+    );
   }
 
   @Get('available-programs')
@@ -137,22 +152,14 @@ export class ExpertiseController {
   async replaceExpert(
     @Param('id') expertiseId: string,
     @Body() body: { oldExpertId: string; newExpertId: string },
-    @Req() req
+    @Req() req,
   ) {
     return this.expertiseService.replaceExpert(
       expertiseId,
       body.oldExpertId,
       body.newExpertId,
-      req.user
+      req.user,
     );
-  }
-
-  // Получение экспертиз для замены (административная функция)
-  @Get('for-replacement')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  async getExpertisesForReplacement(@Req() req) {
-    return this.expertiseService.getExpertisesForReplacement(req.user);
   }
 
   // Массовая замена эксперта
@@ -162,12 +169,12 @@ export class ExpertiseController {
   async replaceExpertInAllExpertises(
     @Param('oldExpertId') oldExpertId: string,
     @Param('newExpertId') newExpertId: string,
-    @Req() req
+    @Req() req,
   ) {
     const count = await this.expertiseService.replaceExpertInAllExpertises(
       oldExpertId,
       newExpertId,
-      req.user
+      req.user,
     );
     return { message: `Эксперт заменен в ${count} экспертизах`, count };
   }
@@ -179,9 +186,13 @@ export class ExpertiseController {
   async createCriteriaConclusion(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() criteriaDto: any, // Используем any пока, т.к. DTO может быть сложной
-    @Request() req
+    @Request() req,
   ) {
-    return this.expertiseService.createExpertiseConclusion(id, criteriaDto, req.user);
+    return this.expertiseService.createExpertiseConclusion(
+      id,
+      criteriaDto,
+      req.user,
+    );
   }
 
   // 3.4 Получение всех экспертиз эксперта с фильтрацией
@@ -196,9 +207,15 @@ export class ExpertiseController {
   @Get('program/:programId/pdf')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.EXPERT)
-  async getProgramPdf(@Param('programId', ParseUUIDPipe) programId: string, @Request() req) {
+  async getProgramPdf(
+    @Param('programId', ParseUUIDPipe) programId: string,
+    @Request() req,
+  ) {
     try {
-      const pdfBuffer = await this.expertiseService.getProgramPdf(programId, req.user);
+      const pdfBuffer = await this.expertiseService.getProgramPdf(
+        programId,
+        req.user,
+      );
       // Возвращаем заглушку пока PDF генерация не реализована
       return { message: 'PDF генерация будет реализована в следующих версиях' };
     } catch (error) {
