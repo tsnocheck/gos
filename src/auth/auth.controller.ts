@@ -12,7 +12,6 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/auth.dto';
 import { CreateUserDto } from '../users/dto/user.dto';
 import { RegisterCandidateDto } from '../users/dto/candidate.dto';
-import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Response as ExpressResponse } from 'express';
 
@@ -43,10 +42,7 @@ export class AuthController {
   }
 
   @Post('login')
-  async login(
-    @Body() loginDto: LoginDto,
-    @Response() res: ExpressResponse,
-  ) {
+  async login(@Body() loginDto: LoginDto, @Response() res: ExpressResponse) {
     const result = await this.authService.login(loginDto);
     
     // Set session key in HTTP-only cookie

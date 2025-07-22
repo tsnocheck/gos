@@ -18,26 +18,26 @@ import { UserRole } from '../enums/user.enum';
 import { CreateCandidateDto, UpdateCandidateDto } from '../dto/candidate.dto';
 
 @Controller('candidates')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class CandidateController {
   constructor(private readonly candidateService: CandidateService) {}
 
-  // 1.1 Добавление кандидата
-  @Post()
-  @Roles(UserRole.ADMIN)
-  async createCandidate(@Body() createCandidateDto: CreateCandidateDto, @Req() req) {
-    return this.candidateService.createCandidate(createCandidateDto, req.user);
-  }
-
   // Получение всех кандидатов
   @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   async findAll(@Req() req) {
     return this.candidateService.findAll(req.user);
   }
 
+  // 1.1 Добавление кандидата
+  @Post()
+  async createCandidate(@Body() createCandidateDto: CreateCandidateDto) {
+    return this.candidateService.createCandidate(createCandidateDto);
+  }
+
   // Получение статистики кандидатов
   @Get('stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   async getStats(@Req() req) {
     return this.candidateService.getCandidateStats(req.user);
@@ -45,6 +45,7 @@ export class CandidateController {
 
   // Получение кандидата по ID
   @Get(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   async findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req) {
     return this.candidateService.findById(id, req.user);
@@ -52,17 +53,23 @@ export class CandidateController {
 
   // Обновление кандидата
   @Put(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCandidateDto: UpdateCandidateDto,
-    @Req() req
+    @Req() req,
   ) {
-    return this.candidateService.updateCandidate(id, updateCandidateDto, req.user);
+    return this.candidateService.updateCandidate(
+      id,
+      updateCandidateDto,
+      req.user,
+    );
   }
 
   // Отправка приглашения кандидату
   @Post(':id/invite')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   async inviteCandidate(@Param('id', ParseUUIDPipe) id: string, @Req() req) {
     return this.candidateService.inviteCandidate(id, req.user);
@@ -70,13 +77,18 @@ export class CandidateController {
 
   // Массовая отправка приглашений
   @Post('invite-multiple')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   async inviteMultiple(@Body() body: { candidateIds: string[] }, @Req() req) {
-    return this.candidateService.inviteMultipleCandidates(body.candidateIds, req.user);
+    return this.candidateService.inviteMultipleCandidates(
+      body.candidateIds,
+      req.user,
+    );
   }
 
   // Отклонение кандидата
   @Put(':id/reject')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   async rejectCandidate(@Param('id', ParseUUIDPipe) id: string, @Req() req) {
     return this.candidateService.rejectCandidate(id, req.user);
@@ -84,6 +96,7 @@ export class CandidateController {
 
   // Удаление кандидата
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   async remove(@Param('id', ParseUUIDPipe) id: string, @Req() req) {
     await this.candidateService.deleteCandidate(id, req.user);
@@ -92,6 +105,7 @@ export class CandidateController {
 
   // Одобрение кандидата (создание пользователя)
   @Post(':id/approve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   async approveCandidate(@Param('id', ParseUUIDPipe) id: string, @Req() req) {
     const result = await this.candidateService.approveCandidate(id, req.user);
@@ -102,9 +116,9 @@ export class CandidateController {
         email: result.user.email,
         firstName: result.user.firstName,
         lastName: result.user.lastName,
-        roles: result.user.roles
+        roles: result.user.roles,
       },
-      temporaryPassword: result.password
+      temporaryPassword: result.password,
     };
   }
 }
