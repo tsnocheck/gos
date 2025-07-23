@@ -1,7 +1,14 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Recommendation, RecommendationStatus } from '../entities/recommendation.entity';
+import {
+  Recommendation,
+  RecommendationStatus,
+} from '../entities/recommendation.entity';
 import { Program } from '../entities/program.entity';
 import { User } from '../../users/entities/user.entity';
 import { UserRole } from '../../users/enums/user.enum';
@@ -23,42 +30,65 @@ export class RecommendationsService {
   ) {}
 
   private hasRole(user: User, role: UserRole): boolean {
-    return user && user.roles && Array.isArray(user.roles) && user.roles.includes(role);
+    return (
+      user &&
+      user.roles &&
+      Array.isArray(user.roles) &&
+      user.roles.includes(role)
+    );
   }
 
   private hasAnyRole(user: User, roles: UserRole[]): boolean {
-    return user && user.roles && Array.isArray(user.roles) && roles.some(role => user.roles.includes(role));
+    return (
+      user &&
+      user.roles &&
+      Array.isArray(user.roles) &&
+      roles.some((role) => user.roles.includes(role))
+    );
   }
 
   private isOnlyAuthor(user: User): boolean {
-    return this.hasRole(user, UserRole.AUTHOR) && !this.hasRole(user, UserRole.ADMIN) && !this.hasRole(user, UserRole.EXPERT);
+    return (
+      this.hasRole(user, UserRole.AUTHOR) &&
+      !this.hasRole(user, UserRole.ADMIN) &&
+      !this.hasRole(user, UserRole.EXPERT)
+    );
   }
 
-  async create(createRecommendationDto: CreateRecommendationDto, creator: User): Promise<Recommendation> {
+  async create(
+    createRecommendationDto: CreateRecommendationDto,
+    creator: User,
+  ): Promise<Recommendation> {
     // Проверка прав создания рекомендаций
     if (!this.hasAnyRole(creator, [UserRole.ADMIN, UserRole.EXPERT])) {
-      throw new ForbiddenException('Только администраторы и эксперты могут создавать рекомендации');
+      throw new ForbiddenException(
+        'Только администраторы и эксперты могут создавать рекомендации',
+      );
     }
 
-    const program = await this.programRepository.findOne({
-      where: { id: createRecommendationDto.programId },
-      relations: ['author'],
-    });
+    /** Todo: Fix it. Commented because program isn't required for create recommendation */
+    // const program = await this.programRepository.findOne({
+    //   where: { id: createRecommendationDto.programId },
+    //   relations: ['author'],
+    // });
 
-    if (!program) {
-      throw new NotFoundException('Программа не найдена');
-    }
+    // if (!program) {
+    //   throw new NotFoundException('Программа не найдена');
+    // }
 
     const recommendation = this.recommendationRepository.create({
       ...createRecommendationDto,
       createdById: creator.id,
-      assignedToId: createRecommendationDto.assignedToId || program.authorId,
+      assignedToId: createRecommendationDto.assignedToId,
     });
 
     return await this.recommendationRepository.save(recommendation);
   }
 
-  async findAll(query: RecommendationQueryDto, user: User): Promise<{ recommendations: Recommendation[]; total: number }> {
+  async findAll(
+    query: RecommendationQueryDto,
+    user: User,
+  ): Promise<{ recommendations: Recommendation[]; total: number }> {
     const {
       status,
       type,
@@ -81,17 +111,26 @@ export class RecommendationsService {
 
     // Фильтрация для авторов - только назначенные им рекомендации
     if (this.isOnlyAuthor(user)) {
-      queryBuilder.andWhere('recommendation.assignedToId = :userId', { userId: user.id });
+      queryBuilder.andWhere('recommendation.assignedToId = :userId', {
+        userId: user.id,
+      });
     }
 
     // Фильтрация для экспертов - только созданные ими рекомендации или по их программам
     if (this.hasRole(user, UserRole.EXPERT)) {
+      const subQuery = queryBuilder
+        .subQuery()
+        .select('1')
+        .from('expertises', 'e')
+        .where('e."programId" = recommendation."programId"')
+        .andWhere('e."expertId" = :userId')
+        .getQuery();
+
       queryBuilder.andWhere(
-        '(recommendation.createdById = :userId OR EXISTS (SELECT 1 FROM expertises e WHERE e.programId = recommendation.programId AND e.expertId = :userId))',
-        { userId: user.id }
+        `(recommendation.createdById = :userId OR EXISTS ${subQuery})`,
+        { userId: user.id },
       );
     }
-
     // Фильтрация по статусу
     if (status) {
       queryBuilder.andWhere('recommendation.status = :status', { status });
@@ -104,26 +143,40 @@ export class RecommendationsService {
 
     // Фильтрация по программе
     if (programId) {
-      queryBuilder.andWhere('recommendation.programId = :programId', { programId });
+      queryBuilder.andWhere('recommendation.programId = :programId', {
+        programId,
+      });
     }
 
     // Фильтрация по назначенному пользователю
     if (assignedToId) {
-      queryBuilder.andWhere('recommendation.assignedToId = :assignedToId', { assignedToId });
+      queryBuilder.andWhere('recommendation.assignedToId = :assignedToId', {
+        assignedToId,
+      });
     }
 
     // Фильтрация по создателю
     if (createdById) {
-      queryBuilder.andWhere('recommendation.createdById = :createdById', { createdById });
+      queryBuilder.andWhere('recommendation.createdById = :createdById', {
+        createdById,
+      });
     }
 
     // Фильтрация по приоритету
     if (priority) {
-      queryBuilder.andWhere('recommendation.priority = :priority', { priority });
+      queryBuilder.andWhere('recommendation.priority = :priority', {
+        priority,
+      });
     }
 
     // Сортировка
-    const allowedSortFields = ['createdAt', 'updatedAt', 'dueDate', 'priority', 'title'];
+    const allowedSortFields = [
+      'createdAt',
+      'updatedAt',
+      'dueDate',
+      'priority',
+      'title',
+    ];
     if (allowedSortFields.includes(sortBy)) {
       queryBuilder.orderBy(`recommendation.${sortBy}`, sortOrder);
     }
@@ -153,19 +206,32 @@ export class RecommendationsService {
     return recommendation;
   }
 
-  async update(id: string, updateRecommendationDto: UpdateRecommendationDto, user: User): Promise<Recommendation> {
+  async update(
+    id: string,
+    updateRecommendationDto: UpdateRecommendationDto,
+    user: User,
+  ): Promise<Recommendation> {
     const recommendation = await this.findOne(id, user);
 
     // Только создатель или админ могут обновлять рекомендацию
-    if (!this.hasRole(user, UserRole.ADMIN) && recommendation.createdById !== user.id) {
-      throw new ForbiddenException('Нет доступа к редактированию этой рекомендации');
+    if (
+      !this.hasRole(user, UserRole.ADMIN) &&
+      recommendation.createdById !== user.id
+    ) {
+      throw new ForbiddenException(
+        'Нет доступа к редактированию этой рекомендации',
+      );
     }
 
     Object.assign(recommendation, updateRecommendationDto);
     return await this.recommendationRepository.save(recommendation);
   }
 
-  async respond(id: string, respondDto: RespondToRecommendationDto, author: User): Promise<Recommendation> {
+  async respond(
+    id: string,
+    respondDto: RespondToRecommendationDto,
+    author: User,
+  ): Promise<Recommendation> {
     const recommendation = await this.findOne(id, author);
 
     // Только назначенный пользователь может отвечать на рекомендацию
@@ -174,7 +240,7 @@ export class RecommendationsService {
     }
 
     recommendation.authorResponse = respondDto.authorResponse;
-    
+
     if (respondDto.status) {
       recommendation.status = respondDto.status;
     }
@@ -186,16 +252,25 @@ export class RecommendationsService {
     return await this.recommendationRepository.save(recommendation);
   }
 
-  async provideFeedback(id: string, feedbackDto: ExpertFeedbackDto, expert: User): Promise<Recommendation> {
+  async provideFeedback(
+    id: string,
+    feedbackDto: ExpertFeedbackDto,
+    expert: User,
+  ): Promise<Recommendation> {
     const recommendation = await this.findOne(id, expert);
 
     // Только создатель рекомендации (эксперт) или админ могут давать обратную связь
-    if (!this.hasRole(expert, UserRole.ADMIN) && recommendation.createdById !== expert.id) {
-      throw new ForbiddenException('Нет доступа к предоставлению обратной связи на эту рекомендацию');
+    if (
+      !this.hasRole(expert, UserRole.ADMIN) &&
+      recommendation.createdById !== expert.id
+    ) {
+      throw new ForbiddenException(
+        'Нет доступа к предоставлению обратной связи на эту рекомендацию',
+      );
     }
 
     recommendation.expertFeedback = feedbackDto.expertFeedback;
-    
+
     if (feedbackDto.status) {
       recommendation.status = feedbackDto.status;
     }
@@ -203,7 +278,10 @@ export class RecommendationsService {
     return await this.recommendationRepository.save(recommendation);
   }
 
-  async getMyRecommendations(user: User, query: RecommendationQueryDto): Promise<{ recommendations: Recommendation[]; total: number }> {
+  async getMyRecommendations(
+    user: User,
+    query: RecommendationQueryDto,
+  ): Promise<{ recommendations: Recommendation[]; total: number }> {
     let filterQuery = { ...query };
 
     if (this.isOnlyAuthor(user)) {
@@ -215,7 +293,10 @@ export class RecommendationsService {
     return await this.findAll(filterQuery, user);
   }
 
-  async getProgramRecommendations(programId: string, user: User): Promise<Recommendation[]> {
+  async getProgramRecommendations(
+    programId: string,
+    user: User,
+  ): Promise<Recommendation[]> {
     const program = await this.programRepository.findOne({
       where: { id: programId },
       relations: ['author'],
@@ -227,7 +308,9 @@ export class RecommendationsService {
 
     // Проверка доступа к программе
     if (this.isOnlyAuthor(user) && program.authorId !== user.id) {
-      throw new ForbiddenException('Нет доступа к рекомендациям этой программы');
+      throw new ForbiddenException(
+        'Нет доступа к рекомендациям этой программы',
+      );
     }
 
     return await this.recommendationRepository.find({
@@ -241,8 +324,13 @@ export class RecommendationsService {
     const recommendation = await this.findOne(id, user);
 
     // Только админ или создатель могут архивировать
-    if (!this.hasRole(user, UserRole.ADMIN) && recommendation.createdById !== user.id) {
-      throw new ForbiddenException('Нет доступа к архивированию этой рекомендации');
+    if (
+      !this.hasRole(user, UserRole.ADMIN) &&
+      recommendation.createdById !== user.id
+    ) {
+      throw new ForbiddenException(
+        'Нет доступа к архивированию этой рекомендации',
+      );
     }
 
     recommendation.status = RecommendationStatus.ARCHIVED;
@@ -251,7 +339,9 @@ export class RecommendationsService {
 
   async remove(id: string, admin: User): Promise<void> {
     if (!this.hasRole(admin, UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут удалять рекомендации');
+      throw new ForbiddenException(
+        'Только администраторы могут удалять рекомендации',
+      );
     }
 
     const recommendation = await this.findOne(id, admin);
@@ -259,13 +349,18 @@ export class RecommendationsService {
   }
 
   async getStatistics(user: User): Promise<any> {
-    const queryBuilder = this.recommendationRepository.createQueryBuilder('recommendation');
+    const queryBuilder =
+      this.recommendationRepository.createQueryBuilder('recommendation');
 
     // Фильтрация в зависимости от роли
     if (this.isOnlyAuthor(user)) {
-      queryBuilder.where('recommendation.assignedToId = :userId', { userId: user.id });
+      queryBuilder.where('recommendation.assignedToId = :userId', {
+        userId: user.id,
+      });
     } else if (this.hasRole(user, UserRole.EXPERT)) {
-      queryBuilder.where('recommendation.createdById = :userId', { userId: user.id });
+      queryBuilder.where('recommendation.createdById = :userId', {
+        userId: user.id,
+      });
     }
 
     const total = await queryBuilder.getCount();
@@ -287,10 +382,13 @@ export class RecommendationsService {
 
     // Статистика по срокам выполнения
     const overdueCount = await queryBuilder
-      .where('recommendation.dueDate < :now AND recommendation.status != :resolved', {
-        now: new Date(),
-        resolved: RecommendationStatus.RESOLVED,
-      })
+      .where(
+        'recommendation.dueDate < :now AND recommendation.status != :resolved',
+        {
+          now: new Date(),
+          resolved: RecommendationStatus.RESOLVED,
+        },
+      )
       .getCount();
 
     return {
@@ -312,9 +410,14 @@ export class RecommendationsService {
   }
 
   // 1.8 Добавление и редактирование данных в системе рекомендаций (для администратора)
-  async createSystemRecommendation(createDto: CreateRecommendationDto, admin: User): Promise<Recommendation> {
+  async createSystemRecommendation(
+    createDto: CreateRecommendationDto,
+    admin: User,
+  ): Promise<Recommendation> {
     if (!this.hasRole(admin, UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут создавать системные рекомендации');
+      throw new ForbiddenException(
+        'Только администраторы могут создавать системные рекомендации',
+      );
     }
 
     // Системные рекомендации не привязаны к конкретной программе
@@ -332,9 +435,15 @@ export class RecommendationsService {
     return await this.recommendationRepository.save(recommendation);
   }
 
-  async updateSystemRecommendation(id: string, updateDto: UpdateRecommendationDto, admin: User): Promise<Recommendation> {
+  async updateSystemRecommendation(
+    id: string,
+    updateDto: UpdateRecommendationDto,
+    admin: User,
+  ): Promise<Recommendation> {
     if (!this.hasRole(admin, UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут редактировать системные рекомендации');
+      throw new ForbiddenException(
+        'Только администраторы могут редактировать системные рекомендации',
+      );
     }
 
     const recommendation = await this.recommendationRepository.findOne({
@@ -351,7 +460,9 @@ export class RecommendationsService {
 
   async deleteSystemRecommendation(id: string, admin: User): Promise<void> {
     if (!this.hasRole(admin, UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут удалять системные рекомендации');
+      throw new ForbiddenException(
+        'Только администраторы могут удалять системные рекомендации',
+      );
     }
 
     const recommendation = await this.recommendationRepository.findOne({
@@ -380,12 +491,17 @@ export class RecommendationsService {
   }
 
   // Получение рекомендаций для конкретного шага создания программы
-  async getRecommendationsForStep(step: string, programType?: string): Promise<Recommendation[]> {
+  async getRecommendationsForStep(
+    step: string,
+    programType?: string,
+  ): Promise<Recommendation[]> {
     const queryBuilder = this.recommendationRepository
       .createQueryBuilder('recommendation')
       .leftJoinAndSelect('recommendation.createdBy', 'createdBy')
       .where('recommendation.programId IS NULL') // Системные рекомендации
-      .andWhere('recommendation.status = :status', { status: RecommendationStatus.ACTIVE });
+      .andWhere('recommendation.status = :status', {
+        status: RecommendationStatus.ACTIVE,
+      });
 
     // Фильтр по типу/шагу создания программы
     if (step) {
@@ -394,13 +510,14 @@ export class RecommendationsService {
 
     // Можно добавить фильтр по типу программы если нужно
     if (programType) {
-      queryBuilder.andWhere('recommendation.metadata LIKE :programType', { 
-        programType: `%"programType":"${programType}"%` 
+      queryBuilder.andWhere('recommendation.metadata LIKE :programType', {
+        programType: `%"programType":"${programType}"%`,
       });
     }
 
-    queryBuilder.orderBy('recommendation.priority', 'DESC')
-               .addOrderBy('recommendation.createdAt', 'DESC');
+    queryBuilder
+      .orderBy('recommendation.priority', 'DESC')
+      .addOrderBy('recommendation.createdAt', 'DESC');
 
     return await queryBuilder.getMany();
   }
@@ -408,7 +525,9 @@ export class RecommendationsService {
   // Получение всех рекомендаций для администрирования
   async getAllRecommendationsForAdmin(admin: User): Promise<Recommendation[]> {
     if (!this.hasRole(admin, UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут просматривать все рекомендации');
+      throw new ForbiddenException(
+        'Только администраторы могут просматривать все рекомендации',
+      );
     }
 
     return await this.recommendationRepository.find({
@@ -418,20 +537,23 @@ export class RecommendationsService {
   }
 
   // Массовое обновление статуса рекомендаций
-  async bulkUpdateStatus(ids: string[], status: RecommendationStatus, admin: User): Promise<void> {
+  async bulkUpdateStatus(
+    ids: string[],
+    status: RecommendationStatus,
+    admin: User,
+  ): Promise<void> {
     if (!this.hasRole(admin, UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут выполнять массовые операции');
+      throw new ForbiddenException(
+        'Только администраторы могут выполнять массовые операции',
+      );
     }
 
-    await this.recommendationRepository.update(
-      ids,
-      { status }
-    );
+    await this.recommendationRepository.update(ids, { status });
   }
 
   private checkAccess(recommendation: Recommendation, user: User): void {
-    const hasAccess = 
-      (user.roles.includes(UserRole.ADMIN)) ||
+    const hasAccess =
+      user.roles.includes(UserRole.ADMIN) ||
       recommendation.createdById === user.id ||
       recommendation.assignedToId === user.id ||
       (this.isOnlyAuthor(user) && recommendation.program.authorId === user.id);

@@ -1,10 +1,19 @@
-import { IsString, IsOptional, IsEnum, IsInt, IsUUID, IsDateString, Min, Max } from 'class-validator';
-import { RecommendationType, RecommendationStatus } from '../entities/recommendation.entity';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsInt,
+  IsUUID,
+  IsDateString,
+  Min,
+  Max,
+} from 'class-validator';
+import {
+  RecommendationType,
+  RecommendationStatus,
+} from '../entities/recommendation.entity';
 
 export class CreateRecommendationDto {
-  @IsUUID()
-  programId: string;
-
   @IsString()
   title: string;
 

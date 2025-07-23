@@ -63,6 +63,13 @@ export class ExpertiseController {
     return this.expertiseService.getExpertisesForReplacement(req.user);
   }
 
+  @Get('available-programs')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.EXPERT, UserRole.ADMIN)
+  async getAvailablePrograms(@Request() req) {
+    return await this.expertiseService.getAvailablePrograms(req.user);
+  }
+
   @Get(':id')
   async findOne(@Param('id', ParseUUIDPipe) id: string, @Request() req) {
     return await this.expertiseService.findOne(id, req.user);
@@ -129,13 +136,6 @@ export class ExpertiseController {
       req.user,
       status as any,
     );
-  }
-
-  @Get('available-programs')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.EXPERT, UserRole.ADMIN)
-  async getAvailablePrograms(@Request() req) {
-    return await this.expertiseService.getAvailablePrograms(req.user);
   }
 
   @Patch(':id/start')

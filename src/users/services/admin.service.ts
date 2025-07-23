@@ -1,9 +1,19 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { UserRole, UserStatus } from '../enums/user.enum';
-import { AdminCreateUserDto, AdminUpdateUserDto, ChangeUserRoleDto, ChangeUserStatusDto } from '../dto/admin.dto';
+import {
+  AdminCreateUserDto,
+  AdminUpdateUserDto,
+  ChangeUserRoleDto,
+  ChangeUserStatusDto,
+} from '../dto/admin.dto';
 import { EmailService } from './email.service';
 import { Expertise } from '../../programs/entities/expertise.entity';
 import { ExpertiseStatus } from '../../programs/enums/program.enum';
@@ -22,7 +32,7 @@ export class AdminService {
   // 1.1 Принятие нового пользователя в систему
   async approveUser(userId: string): Promise<User> {
     const user = await this.findUserById(userId);
-    
+
     if (user.status === UserStatus.ACTIVE) {
       throw new BadRequestException('User is already active');
     }
@@ -38,8 +48,8 @@ export class AdminService {
 
   // 1.1 Создание пользователя администратором
   async createUser(createUserDto: AdminCreateUserDto): Promise<User> {
-    const existingUser = await this.userRepository.findOne({ 
-      where: { email: createUserDto.email } 
+    const existingUser = await this.userRepository.findOne({
+      where: { email: createUserDto.email },
     });
 
     if (existingUser) {
@@ -70,9 +80,15 @@ export class AdminService {
   }
 
   // 1.2 Назначение и смена ролей пользователя (обновлено для множественных ролей)
-  async assignRoles(userId: string, roles: UserRole[], adminUser: User): Promise<User> {
+  async assignRoles(
+    userId: string,
+    roles: UserRole[],
+    adminUser: User,
+  ): Promise<User> {
     if (!adminUser.roles.includes(UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут назначать роли');
+      throw new ForbiddenException(
+        'Только администраторы могут назначать роли',
+      );
     }
 
     const user = await this.findUserById(userId);
@@ -80,9 +96,15 @@ export class AdminService {
     return this.userRepository.save(user);
   }
 
-  async addRole(userId: string, role: UserRole, adminUser: User): Promise<User> {
+  async addRole(
+    userId: string,
+    role: UserRole,
+    adminUser: User,
+  ): Promise<User> {
     if (!adminUser.roles.includes(UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут добавлять роли');
+      throw new ForbiddenException(
+        'Только администраторы могут добавлять роли',
+      );
     }
 
     const user = await this.findUserById(userId);
@@ -92,19 +114,23 @@ export class AdminService {
     return this.userRepository.save(user);
   }
 
-  async removeRole(userId: string, role: UserRole, adminUser: User): Promise<User> {
+  async removeRole(
+    userId: string,
+    role: UserRole,
+    adminUser: User,
+  ): Promise<User> {
     if (!adminUser.roles.includes(UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут удалять роли');
     }
 
     const user = await this.findUserById(userId);
-    user.roles = user.roles.filter(r => r !== role);
-    
+    user.roles = user.roles.filter((r) => r !== role);
+
     // Убеждаемся, что у пользователя есть хотя бы одна роль
     if (user.roles.length === 0) {
       user.roles = [UserRole.AUTHOR];
     }
-    
+
     return this.userRepository.save(user);
   }
 
@@ -116,7 +142,10 @@ export class AdminService {
   }
 
   // 1.3 Редактирование данных пользователей
-  async updateUser(userId: string, updateUserDto: AdminUpdateUserDto): Promise<User> {
+  async updateUser(
+    userId: string,
+    updateUserDto: AdminUpdateUserDto,
+  ): Promise<User> {
     const user = await this.findUserById(userId);
     Object.assign(user, updateUserDto);
     return this.userRepository.save(user);
@@ -125,7 +154,7 @@ export class AdminService {
   // 1.4 Отправка приглашений по смене пароля
   async sendPasswordResetInvitation(userId: string): Promise<void> {
     const user = await this.findUserById(userId);
-    
+
     const invitationToken = crypto.randomBytes(32).toString('hex');
     const invitationExpiresAt = new Date();
     invitationExpiresAt.setHours(invitationExpiresAt.getHours() + 24);
@@ -163,9 +192,11 @@ export class AdminService {
   // Получение всех пользователей для администрирования
   async getAllUsers(includeHidden = false): Promise<User[]> {
     const query = this.userRepository.createQueryBuilder('user');
-    
+
     if (!includeHidden) {
-      query.where('user.status != :hiddenStatus', { hiddenStatus: UserStatus.HIDDEN });
+      query.where('user.status != :hiddenStatus', {
+        hiddenStatus: UserStatus.HIDDEN,
+      });
     }
 
     return query.getMany();
@@ -190,24 +221,29 @@ export class AdminService {
   }
 
   // A1.4 Получение пользователей с расширенной фильтрацией и сортировкой
-  async getAdminUsersTable(admin: User, filters?: {
-    search?: string;
-    role?: UserRole;
-    status?: UserStatus;
-    workplace?: string;
-    department?: string;
-    sortBy?: string;
-    sortOrder?: 'ASC' | 'DESC';
-    page?: number;
-    limit?: number;
-  }): Promise<{
+  async getAdminUsersTable(
+    admin: User,
+    filters?: {
+      search?: string;
+      role?: UserRole;
+      status?: UserStatus;
+      workplace?: string;
+      department?: string;
+      sortBy?: string;
+      sortOrder?: 'ASC' | 'DESC';
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<{
     users: any[];
     total: number;
     page: number;
     totalPages: number;
   }> {
     if (!admin.roles.includes(UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут просматривать таблицу пользователей');
+      throw new ForbiddenException(
+        'Только администраторы могут просматривать таблицу пользователей',
+      );
     }
 
     let query = this.userRepository.createQueryBuilder('user');
@@ -216,7 +252,7 @@ export class AdminService {
     if (filters?.search) {
       query = query.andWhere(
         '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.middleName ILIKE :search OR user.email ILIKE :search)',
-        { search: `%${filters.search}%` }
+        { search: `%${filters.search}%` },
       );
     }
 
@@ -225,18 +261,20 @@ export class AdminService {
     }
 
     if (filters?.status) {
-      query = query.andWhere('user.status = :status', { status: filters.status });
+      query = query.andWhere('user.status = :status', {
+        status: filters.status,
+      });
     }
 
     if (filters?.workplace) {
-      query = query.andWhere('user.workplace ILIKE :workplace', { 
-        workplace: `%${filters.workplace}%` 
+      query = query.andWhere('user.workplace ILIKE :workplace', {
+        workplace: `%${filters.workplace}%`,
       });
     }
 
     if (filters?.department) {
-      query = query.andWhere('user.department ILIKE :department', { 
-        department: `%${filters.department}%` 
+      query = query.andWhere('user.department ILIKE :department', {
+        department: `%${filters.department}%`,
       });
     }
 
@@ -256,7 +294,7 @@ export class AdminService {
       .getManyAndCount();
 
     // Форматируем данные для таблицы администратора
-    const formattedUsers = users.map(user => ({
+    const formattedUsers = users.map((user) => ({
       id: user.id,
       lastName: user.lastName || '',
       firstName: user.firstName || '',
@@ -274,26 +312,32 @@ export class AdminService {
       isAdmin: user.roles.includes(UserRole.ADMIN),
       status: user.status,
       createdAt: user.createdAt,
-      updatedAt: user.updatedAt
+      updatedAt: user.updatedAt,
     }));
 
     return {
       users: formattedUsers,
       total,
       page,
-      totalPages: Math.ceil(total / limit)
+      totalPages: Math.ceil(total / limit),
     };
   }
 
   // A1.4 Массовое управление пользователями
-  async bulkUpdateUsers(admin: User, userIds: string[], updates: {
-    roles?: UserRole[];
-    status?: UserStatus;
-    workplace?: string;
-    department?: string;
-  }): Promise<{ updated: number; failed: number }> {
+  async bulkUpdateUsers(
+    admin: User,
+    userIds: string[],
+    updates: {
+      roles?: UserRole[];
+      status?: UserStatus;
+      workplace?: string;
+      department?: string;
+    },
+  ): Promise<{ updated: number; failed: number }> {
     if (!admin.roles.includes(UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут массово обновлять пользователей');
+      throw new ForbiddenException(
+        'Только администраторы могут массово обновлять пользователей',
+      );
     }
 
     let updated = 0;
@@ -301,13 +345,15 @@ export class AdminService {
 
     for (const userId of userIds) {
       try {
-        const user = await this.userRepository.findOne({ where: { id: userId } });
+        const user = await this.userRepository.findOne({
+          where: { id: userId },
+        });
         if (user) {
           if (updates.roles) user.roles = updates.roles;
           if (updates.status) user.status = updates.status;
           if (updates.workplace) user.workplace = updates.workplace;
           if (updates.department) user.department = updates.department;
-          
+
           await this.userRepository.save(user);
           updated++;
         } else {
@@ -322,50 +368,58 @@ export class AdminService {
   }
 
   // A1.5 Получение экспертов с детальной информацией
-  async getAdminExpertsTable(admin: User, filters?: {
-    search?: string;
-    subject?: string;
-    region?: string;
-    workplace?: string;
-    isActive?: boolean;
-    sortBy?: string;
-    sortOrder?: 'ASC' | 'DESC';
-    page?: number;
-    limit?: number;
-  }): Promise<{
+  async getAdminExpertsTable(
+    admin: User,
+    filters?: {
+      search?: string;
+      subject?: string;
+      region?: string;
+      workplace?: string;
+      isActive?: boolean;
+      sortBy?: string;
+      sortOrder?: 'ASC' | 'DESC';
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<{
     experts: any[];
     total: number;
     page: number;
     totalPages: number;
   }> {
     if (!admin.roles.includes(UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут просматривать таблицу экспертов');
+      throw new ForbiddenException(
+        'Только администраторы могут просматривать таблицу экспертов',
+      );
     }
 
-    let query = this.userRepository.createQueryBuilder('user')
+    let query = this.userRepository
+      .createQueryBuilder('user')
       .where(':role = ANY(user.roles)', { role: UserRole.EXPERT });
 
     // Фильтрация
     if (filters?.search) {
       query = query.andWhere(
         '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.middleName ILIKE :search OR user.email ILIKE :search)',
-        { search: `%${filters.search}%` }
+        { search: `%${filters.search}%` },
       );
     }
 
     if (filters?.subject) {
-      query = query.andWhere(':subject = ANY(user.subjects)', { subject: filters.subject });
+      query = query.andWhere(':subject = ANY(user.subjects)', {
+        subject: filters.subject,
+      });
     }
 
     if (filters?.workplace) {
-      query = query.andWhere('user.workplace ILIKE :workplace', { 
-        workplace: `%${filters.workplace}%` 
+      query = query.andWhere('user.workplace ILIKE :workplace', {
+        workplace: `%${filters.workplace}%`,
       });
     }
 
     if (filters?.isActive !== undefined) {
-      query = query.andWhere('user.status = :status', { 
-        status: filters.isActive ? UserStatus.ACTIVE : UserStatus.INACTIVE 
+      query = query.andWhere('user.status = :status', {
+        status: filters.isActive ? UserStatus.ACTIVE : UserStatus.INACTIVE,
       });
     }
 
@@ -385,36 +439,38 @@ export class AdminService {
       .getManyAndCount();
 
     // Получаем статистику экспертиз для каждого эксперта
-    const formattedExperts = await Promise.all(experts.map(async expert => {
-      const expertiseStats = await this.getExpertExpertiseStats(expert.id);
-      
-      return {
-        id: expert.id,
-        lastName: expert.lastName || '',
-        firstName: expert.firstName || '',
-        middleName: expert.middleName || '',
-        email: expert.email,
-        phone: expert.phone || '',
-        position: expert.position || '',
-        workplace: expert.workplace || '',
-        department: expert.department || '',
-        subjects: expert.subjects || [],
-        academicDegree: expert.academicDegree || '',
-        status: expert.status,
-        expertiseCount: expertiseStats.total,
-        pendingExpertiseCount: expertiseStats.pending,
-        completedExpertiseCount: expertiseStats.completed,
-        averageRating: expertiseStats.averageRating,
-        lastActivity: expert.updatedAt,
-        createdAt: expert.createdAt
-      };
-    }));
+    const formattedExperts = await Promise.all(
+      experts.map(async (expert) => {
+        const expertiseStats = await this.getExpertExpertiseStats(expert.id);
+
+        return {
+          id: expert.id,
+          lastName: expert.lastName || '',
+          firstName: expert.firstName || '',
+          middleName: expert.middleName || '',
+          email: expert.email,
+          phone: expert.phone || '',
+          position: expert.position || '',
+          workplace: expert.workplace || '',
+          department: expert.department || '',
+          subjects: expert.subjects || [],
+          academicDegree: expert.academicDegree || '',
+          status: expert.status,
+          expertiseCount: expertiseStats.total,
+          pendingExpertiseCount: expertiseStats.pending,
+          completedExpertiseCount: expertiseStats.completed,
+          averageRating: expertiseStats.averageRating,
+          lastActivity: expert.updatedAt,
+          createdAt: expert.createdAt,
+        };
+      }),
+    );
 
     return {
       experts: formattedExperts,
       total,
       page,
-      totalPages: Math.ceil(total / limit)
+      totalPages: Math.ceil(total / limit),
     };
   }
 
@@ -426,54 +482,62 @@ export class AdminService {
     averageRating: number;
   }> {
     const total = await this.expertiseRepository.count({
-      where: { expert: { id: expertId } }
+      where: { expert: { id: expertId } },
     });
 
     const pending = await this.expertiseRepository.count({
-      where: { 
+      where: {
         expert: { id: expertId },
-        status: ExpertiseStatus.PENDING 
-      }
+        status: ExpertiseStatus.PENDING,
+      },
     });
 
     const completed = await this.expertiseRepository.count({
-      where: { 
+      where: {
         expert: { id: expertId },
-        status: ExpertiseStatus.COMPLETED 
-      }
+        status: ExpertiseStatus.COMPLETED,
+      },
     });
 
     // Вычисляем средний балл по завершенным экспертизам
     const completedExpertises = await this.expertiseRepository.find({
-      where: { 
+      where: {
         expert: { id: expertId },
         status: ExpertiseStatus.COMPLETED,
-        totalScore: MoreThan(0)
+        totalScore: MoreThan(0),
       },
-      select: ['totalScore']
+      select: ['totalScore'],
     });
 
-    const averageRating = completedExpertises.length > 0
-      ? completedExpertises.reduce((sum, e) => sum + e.totalScore, 0) / completedExpertises.length
-      : 0;
+    const averageRating =
+      completedExpertises.length > 0
+        ? completedExpertises.reduce((sum, e) => sum + e.totalScore, 0) /
+          completedExpertises.length
+        : 0;
 
     return {
       total,
       pending,
       completed,
-      averageRating: Math.round(averageRating * 10) / 10 // Округляем до 1 знака после запятой
+      averageRating: Math.round(averageRating * 10) / 10, // Округляем до 1 знака после запятой
     };
   }
 
   // A1.5 Управление назначениями экспертов
-  async reassignExpert(admin: User, expertiseId: string, newExpertId: string): Promise<void> {
+  async reassignExpert(
+    admin: User,
+    expertiseId: string,
+    newExpertId: string,
+  ): Promise<void> {
     if (!admin.roles.includes(UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут переназначать экспертов');
+      throw new ForbiddenException(
+        'Только администраторы могут переназначать экспертов',
+      );
     }
 
     const expertise = await this.expertiseRepository.findOne({
       where: { id: expertiseId },
-      relations: ['expert', 'program']
+      relations: ['expert', 'program'],
     });
 
     if (!expertise) {
@@ -481,17 +545,19 @@ export class AdminService {
     }
 
     const newExpert = await this.userRepository.findOne({
-      where: { id: newExpertId }
+      where: { id: newExpertId },
     });
 
     if (!newExpert || !newExpert.roles.includes(UserRole.EXPERT)) {
-      throw new NotFoundException('Новый эксперт не найден или не является экспертом');
+      throw new NotFoundException(
+        'Новый эксперт не найден или не является экспертом',
+      );
     }
 
     const oldExpert = expertise.expert;
     expertise.expert = newExpert;
     expertise.status = ExpertiseStatus.PENDING;
-    
+
     await this.expertiseRepository.save(expertise);
 
     // Уведомления отправляются через существующие методы
@@ -500,34 +566,39 @@ export class AdminService {
   }
 
   // A1.6 Получение программ для административного управления
-  async getAdminProgramsTable(admin: User, filters?: {
-    search?: string;
-    authorId?: string;
-    status?: string;
-    subject?: string;
-    targetAudience?: string;
-    category?: string;
-    hasExpertise?: boolean;
-    createdFrom?: Date;
-    createdTo?: Date;
-    sortBy?: string;
-    sortOrder?: 'ASC' | 'DESC';
-    page?: number;
-    limit?: number;
-  }): Promise<{
+  async getAdminProgramsTable(
+    admin: User,
+    filters?: {
+      search?: string;
+      authorId?: string;
+      status?: string;
+      subject?: string;
+      targetAudience?: string;
+      category?: string;
+      hasExpertise?: boolean;
+      createdFrom?: Date;
+      createdTo?: Date;
+      sortBy?: string;
+      sortOrder?: 'ASC' | 'DESC';
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<{
     programs: any[];
     total: number;
     page: number;
     totalPages: number;
   }> {
     if (!admin.roles.includes(UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут просматривать административную таблицу программ');
+      throw new ForbiddenException(
+        'Только администраторы могут просматривать административную таблицу программ',
+      );
     }
 
     // Для этого метода нужен доступ к Program repository
     // Используем прямой SQL запрос через EntityManager
     const entityManager = this.userRepository.manager;
-    
+
     let queryBuilder = entityManager
       .createQueryBuilder()
       .select([
@@ -545,7 +616,7 @@ export class AdminService {
         'u.lastName as "authorLastName"',
         'u.email as "authorEmail"',
         'COUNT(DISTINCT e.id) as "expertiseCount"',
-        'COUNT(DISTINCT CASE WHEN e.status = \'completed\' THEN e.id END) as "completedExpertiseCount"'
+        'COUNT(DISTINCT CASE WHEN e.status = \'completed\' THEN e.id END) as "completedExpertiseCount"',
       ])
       .from('programs', 'p')
       .leftJoin('users', 'u', 'p.authorId = u.id')
@@ -556,41 +627,52 @@ export class AdminService {
     if (filters?.search) {
       queryBuilder = queryBuilder.andWhere(
         '(p.title ILIKE :search OR p.description ILIKE :search)',
-        { search: `%${filters.search}%` }
+        { search: `%${filters.search}%` },
       );
     }
 
     if (filters?.authorId) {
-      queryBuilder = queryBuilder.andWhere('p.authorId = :authorId', { authorId: filters.authorId });
-    }
-
-    if (filters?.status) {
-      queryBuilder = queryBuilder.andWhere('p.status = :status', { status: filters.status });
-    }
-
-    if (filters?.subject) {
-      queryBuilder = queryBuilder.andWhere('p.subject = :subject', { subject: filters.subject });
-    }
-
-    if (filters?.targetAudience) {
-      queryBuilder = queryBuilder.andWhere('p.targetAudience = :targetAudience', { 
-        targetAudience: filters.targetAudience 
+      queryBuilder = queryBuilder.andWhere('p.authorId = :authorId', {
+        authorId: filters.authorId,
       });
     }
 
+    if (filters?.status) {
+      queryBuilder = queryBuilder.andWhere('p.status = :status', {
+        status: filters.status,
+      });
+    }
+
+    if (filters?.subject) {
+      queryBuilder = queryBuilder.andWhere('p.subject = :subject', {
+        subject: filters.subject,
+      });
+    }
+
+    if (filters?.targetAudience) {
+      queryBuilder = queryBuilder.andWhere(
+        'p.targetAudience = :targetAudience',
+        {
+          targetAudience: filters.targetAudience,
+        },
+      );
+    }
+
     if (filters?.category) {
-      queryBuilder = queryBuilder.andWhere('p.category = :category', { category: filters.category });
+      queryBuilder = queryBuilder.andWhere('p.category = :category', {
+        category: filters.category,
+      });
     }
 
     if (filters?.createdFrom) {
-      queryBuilder = queryBuilder.andWhere('p.createdAt >= :createdFrom', { 
-        createdFrom: filters.createdFrom 
+      queryBuilder = queryBuilder.andWhere('p.createdAt >= :createdFrom', {
+        createdFrom: filters.createdFrom,
       });
     }
 
     if (filters?.createdTo) {
-      queryBuilder = queryBuilder.andWhere('p.createdAt <= :createdTo', { 
-        createdTo: filters.createdTo 
+      queryBuilder = queryBuilder.andWhere('p.createdAt <= :createdTo', {
+        createdTo: filters.createdTo,
       });
     }
 
@@ -610,7 +692,7 @@ export class AdminService {
     // Сортировка
     const sortBy = filters?.sortBy || 'createdAt';
     const sortOrder = filters?.sortOrder || 'DESC';
-    
+
     if (sortBy === 'authorName') {
       queryBuilder = queryBuilder.orderBy('u.lastName', sortOrder);
     } else if (sortBy === 'expertiseCount') {
@@ -630,7 +712,7 @@ export class AdminService {
       .getRawMany();
 
     // Форматируем данные
-    const formattedPrograms = programs.map(program => ({
+    const formattedPrograms = programs.map((program) => ({
       id: program.id,
       title: program.title,
       description: program.description,
@@ -642,30 +724,36 @@ export class AdminService {
       author: {
         firstName: program.authorFirstName,
         lastName: program.authorLastName,
-        email: program.authorEmail
+        email: program.authorEmail,
       },
       expertiseCount: parseInt(program.expertiseCount) || 0,
       completedExpertiseCount: parseInt(program.completedExpertiseCount) || 0,
       createdAt: program.createdAt,
-      updatedAt: program.updatedAt
+      updatedAt: program.updatedAt,
     }));
 
     return {
       programs: formattedPrograms,
       total,
       page,
-      totalPages: Math.ceil(total / limit)
+      totalPages: Math.ceil(total / limit),
     };
   }
 
   // A1.6 Административные действия с программами
-  async bulkUpdatePrograms(admin: User, programIds: string[], updates: {
-    status?: string;
-    category?: string;
-    archiveReason?: string;
-  }): Promise<{ updated: number; failed: number }> {
+  async bulkUpdatePrograms(
+    admin: User,
+    programIds: string[],
+    updates: {
+      status?: string;
+      category?: string;
+      archiveReason?: string;
+    },
+  ): Promise<{ updated: number; failed: number }> {
     if (!admin.roles.includes(UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут массово обновлять программы');
+      throw new ForbiddenException(
+        'Только администраторы могут массово обновлять программы',
+      );
     }
 
     const entityManager = this.userRepository.manager;
@@ -677,8 +765,9 @@ export class AdminService {
         const updateData: any = {};
         if (updates.status) updateData.status = updates.status;
         if (updates.category) updateData.category = updates.category;
-        if (updates.archiveReason) updateData.archiveReason = updates.archiveReason;
-        
+        if (updates.archiveReason)
+          updateData.archiveReason = updates.archiveReason;
+
         updateData.updatedAt = new Date();
 
         const result = await entityManager
@@ -702,13 +791,19 @@ export class AdminService {
   }
 
   // A1.6 Принудительное архивирование программы
-  async forceArchiveProgram(admin: User, programId: string, reason: string): Promise<void> {
+  async forceArchiveProgram(
+    admin: User,
+    programId: string,
+    reason: string,
+  ): Promise<void> {
     if (!admin.roles.includes(UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут принудительно архивировать программы');
+      throw new ForbiddenException(
+        'Только администраторы могут принудительно архивировать программы',
+      );
     }
 
     const entityManager = this.userRepository.manager;
-    
+
     await entityManager
       .createQueryBuilder()
       .update('programs')
@@ -717,34 +812,39 @@ export class AdminService {
         archiveReason: reason,
         archivedAt: new Date(),
         archivedBy: admin.id,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       })
       .where('id = :id', { id: programId })
       .execute();
   }
 
   // A1.7 Получение и управление словарями
-  async getAdminDictionariesTable(admin: User, filters?: {
-    search?: string;
-    category?: string;
-    isActive?: boolean;
-    parentId?: string;
-    sortBy?: string;
-    sortOrder?: 'ASC' | 'DESC';
-    page?: number;
-    limit?: number;
-  }): Promise<{
+  async getAdminDictionariesTable(
+    admin: User,
+    filters?: {
+      search?: string;
+      category?: string;
+      isActive?: boolean;
+      parentId?: string;
+      sortBy?: string;
+      sortOrder?: 'ASC' | 'DESC';
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<{
     dictionaries: any[];
     total: number;
     page: number;
     totalPages: number;
   }> {
     if (!admin.roles.includes(UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут управлять словарями');
+      throw new ForbiddenException(
+        'Только администраторы могут управлять словарями',
+      );
     }
 
     const entityManager = this.userRepository.manager;
-    
+
     let queryBuilder = entityManager
       .createQueryBuilder()
       .select([
@@ -758,7 +858,7 @@ export class AdminService {
         'd.createdAt as "createdAt"',
         'd.updatedAt as "updatedAt"',
         'p.name as "parentName"',
-        'COUNT(DISTINCT c.id) as "childrenCount"'
+        'COUNT(DISTINCT c.id) as "childrenCount"',
       ])
       .from('dictionaries', 'd')
       .leftJoin('dictionaries', 'p', 'd.parentId = p.id')
@@ -769,23 +869,29 @@ export class AdminService {
     if (filters?.search) {
       queryBuilder = queryBuilder.andWhere(
         '(d.name ILIKE :search OR d.value ILIKE :search)',
-        { search: `%${filters.search}%` }
+        { search: `%${filters.search}%` },
       );
     }
 
     if (filters?.category) {
-      queryBuilder = queryBuilder.andWhere('d.category = :category', { category: filters.category });
+      queryBuilder = queryBuilder.andWhere('d.category = :category', {
+        category: filters.category,
+      });
     }
 
     if (filters?.isActive !== undefined) {
-      queryBuilder = queryBuilder.andWhere('d.isActive = :isActive', { isActive: filters.isActive });
+      queryBuilder = queryBuilder.andWhere('d.isActive = :isActive', {
+        isActive: filters.isActive,
+      });
     }
 
     if (filters?.parentId) {
       if (filters.parentId === 'null') {
         queryBuilder = queryBuilder.andWhere('d.parentId IS NULL');
       } else {
-        queryBuilder = queryBuilder.andWhere('d.parentId = :parentId', { parentId: filters.parentId });
+        queryBuilder = queryBuilder.andWhere('d.parentId = :parentId', {
+          parentId: filters.parentId,
+        });
       }
     }
 
@@ -797,7 +903,7 @@ export class AdminService {
     // Сортировка
     const sortBy = filters?.sortBy || 'sortOrder';
     const sortOrder = filters?.sortOrder || 'ASC';
-    
+
     if (sortBy === 'parentName') {
       queryBuilder = queryBuilder.orderBy('p.name', sortOrder);
     } else if (sortBy === 'childrenCount') {
@@ -817,7 +923,7 @@ export class AdminService {
       .getRawMany();
 
     // Форматируем данные
-    const formattedDictionaries = dictionaries.map(dict => ({
+    const formattedDictionaries = dictionaries.map((dict) => ({
       id: dict.id,
       name: dict.name,
       value: dict.value,
@@ -828,32 +934,37 @@ export class AdminService {
       parentName: dict.parentName,
       childrenCount: parseInt(dict.childrenCount) || 0,
       createdAt: dict.createdAt,
-      updatedAt: dict.updatedAt
+      updatedAt: dict.updatedAt,
     }));
 
     return {
       dictionaries: formattedDictionaries,
       total,
       page,
-      totalPages: Math.ceil(total / limit)
+      totalPages: Math.ceil(total / limit),
     };
   }
 
   // A1.7 Создание нового элемента словаря
-  async createDictionaryItem(admin: User, data: {
-    name: string;
-    value: string;
-    category: string;
-    parentId?: string;
-    sortOrder?: number;
-    isActive?: boolean;
-  }): Promise<any> {
+  async createDictionaryItem(
+    admin: User,
+    data: {
+      name: string;
+      value: string;
+      category: string;
+      parentId?: string;
+      sortOrder?: number;
+      isActive?: boolean;
+    },
+  ): Promise<any> {
     if (!admin.roles.includes(UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут создавать элементы словарей');
+      throw new ForbiddenException(
+        'Только администраторы могут создавать элементы словарей',
+      );
     }
 
     const entityManager = this.userRepository.manager;
-    
+
     // Проверяем уникальность в рамках категории и родителя
     const existingItem = await entityManager
       .createQueryBuilder()
@@ -861,12 +972,16 @@ export class AdminService {
       .from('dictionaries', 'd')
       .where('d.name = :name', { name: data.name })
       .andWhere('d.category = :category', { category: data.category })
-      .andWhere(data.parentId ? 'd.parentId = :parentId' : 'd.parentId IS NULL', 
-                data.parentId ? { parentId: data.parentId } : {})
+      .andWhere(
+        data.parentId ? 'd.parentId = :parentId' : 'd.parentId IS NULL',
+        data.parentId ? { parentId: data.parentId } : {},
+      )
       .getRawOne();
 
     if (existingItem) {
-      throw new BadRequestException('Элемент с таким названием уже существует в данной категории');
+      throw new BadRequestException(
+        'Элемент с таким названием уже существует в данной категории',
+      );
     }
 
     // Если sortOrder не указан, устанавливаем следующий по порядку
@@ -877,10 +992,12 @@ export class AdminService {
         .select('MAX(d.sortOrder)', 'maxOrder')
         .from('dictionaries', 'd')
         .where('d.category = :category', { category: data.category })
-        .andWhere(data.parentId ? 'd.parentId = :parentId' : 'd.parentId IS NULL',
-                  data.parentId ? { parentId: data.parentId } : {})
+        .andWhere(
+          data.parentId ? 'd.parentId = :parentId' : 'd.parentId IS NULL',
+          data.parentId ? { parentId: data.parentId } : {},
+        )
         .getRawOne();
-      
+
       sortOrder = (maxOrder?.maxOrder || 0) + 1;
     }
 
@@ -896,7 +1013,7 @@ export class AdminService {
         sortOrder: sortOrder,
         isActive: data.isActive !== false,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       })
       .execute();
 
@@ -904,18 +1021,24 @@ export class AdminService {
   }
 
   // A1.7 Обновление элемента словаря
-  async updateDictionaryItem(admin: User, itemId: string, data: {
-    name?: string;
-    value?: string;
-    sortOrder?: number;
-    isActive?: boolean;
-  }): Promise<void> {
+  async updateDictionaryItem(
+    admin: User,
+    itemId: string,
+    data: {
+      name?: string;
+      value?: string;
+      sortOrder?: number;
+      isActive?: boolean;
+    },
+  ): Promise<void> {
     if (!admin.roles.includes(UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут редактировать элементы словарей');
+      throw new ForbiddenException(
+        'Только администраторы могут редактировать элементы словарей',
+      );
     }
 
     const entityManager = this.userRepository.manager;
-    
+
     const updateData: any = {};
     if (data.name) updateData.name = data.name;
     if (data.value) updateData.value = data.value;
@@ -938,11 +1061,13 @@ export class AdminService {
   // A1.7 Удаление элемента словаря
   async deleteDictionaryItem(admin: User, itemId: string): Promise<void> {
     if (!admin.roles.includes(UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут удалять элементы словарей');
+      throw new ForbiddenException(
+        'Только администраторы могут удалять элементы словарей',
+      );
     }
 
     const entityManager = this.userRepository.manager;
-    
+
     // Проверяем, есть ли дочерние элементы
     const childrenCount = await entityManager
       .createQueryBuilder()
@@ -952,7 +1077,9 @@ export class AdminService {
       .getRawOne();
 
     if (parseInt(childrenCount.count) > 0) {
-      throw new BadRequestException('Нельзя удалить элемент словаря, у которого есть дочерние элементы');
+      throw new BadRequestException(
+        'Нельзя удалить элемент словаря, у которого есть дочерние элементы',
+      );
     }
 
     const result = await entityManager
@@ -968,21 +1095,26 @@ export class AdminService {
   }
 
   // A1.7 Массовое обновление порядка сортировки
-  async reorderDictionaryItems(admin: User, items: { id: string; sortOrder: number }[]): Promise<void> {
+  async reorderDictionaryItems(
+    admin: User,
+    items: { id: string; sortOrder: number }[],
+  ): Promise<void> {
     if (!admin.roles.includes(UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут изменять порядок элементов словарей');
+      throw new ForbiddenException(
+        'Только администраторы могут изменять порядок элементов словарей',
+      );
     }
 
     const entityManager = this.userRepository.manager;
-    
-    await entityManager.transaction(async transactionalEntityManager => {
+
+    await entityManager.transaction(async (transactionalEntityManager) => {
       for (const item of items) {
         await transactionalEntityManager
           .createQueryBuilder()
           .update('dictionaries')
-          .set({ 
+          .set({
             sortOrder: item.sortOrder,
-            updatedAt: new Date()
+            updatedAt: new Date(),
           })
           .where('id = :id', { id: item.id })
           .execute();
