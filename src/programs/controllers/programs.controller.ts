@@ -13,12 +13,10 @@ import {
   UseInterceptors,
   UploadedFile,
   Res,
-  NotFoundException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Express } from 'express';
 import { Response } from 'express';
-import * as path from 'path';
 import { ProgramsService } from '../services/programs.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
@@ -44,7 +42,7 @@ export class ProgramsController {
   @Roles(UserRole.AUTHOR, UserRole.ADMIN)
   @UseInterceptors(FileInterceptor('file'))
   async create(
-    @Body() createProgramDto: CreateProgramDto, 
+    @Body() createProgramDto: CreateProgramDto,
     @Request() req,
     @UploadedFile() file?: Express.Multer.File,
   ) {

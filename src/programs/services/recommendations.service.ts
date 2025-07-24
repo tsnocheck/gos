@@ -88,7 +88,7 @@ export class RecommendationsService {
   async findAll(
     query: RecommendationQueryDto,
     user: User,
-  ): Promise<{ recommendations: Recommendation[]; total: number }> {
+  ): Promise<{ data: Recommendation[]; total: number }> {
     const {
       status,
       type,
@@ -185,9 +185,9 @@ export class RecommendationsService {
     const skip = (page - 1) * limit;
     queryBuilder.skip(skip).take(limit);
 
-    const [recommendations, total] = await queryBuilder.getManyAndCount();
+    const [data, total] = await queryBuilder.getManyAndCount();
 
-    return { recommendations, total };
+    return { data, total };
   }
 
   async findOne(id: string, user: User): Promise<Recommendation> {
@@ -281,8 +281,8 @@ export class RecommendationsService {
   async getMyRecommendations(
     user: User,
     query: RecommendationQueryDto,
-  ): Promise<{ recommendations: Recommendation[]; total: number }> {
-    let filterQuery = { ...query };
+  ): Promise<{ data: Recommendation[]; total: number }> {
+    const filterQuery = { ...query };
 
     if (this.isOnlyAuthor(user)) {
       filterQuery.assignedToId = user.id;
