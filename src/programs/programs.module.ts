@@ -8,10 +8,12 @@ import { ProgramsService } from './services/programs.service';
 import { ExpertiseService } from './services/expertise.service';
 import { RecommendationsService } from './services/recommendations.service';
 import { ExpertAssignmentService } from './services/expert-assignment.service';
+import { CoAuthorsService } from './services/co-authors.service';
 import { FileService } from './services/file.service';
 import { ProgramsController } from './controllers/programs.controller';
 import { ExpertiseController } from './controllers/expertise.controller';
 import { RecommendationsController } from './controllers/recommendations.controller';
+import { CoAuthorsController } from './controllers/co-authors.controller';
 import { UsersModule } from '../users/users.module';
 
 @Module({
@@ -23,12 +25,14 @@ import { UsersModule } from '../users/users.module';
     ProgramsController,
     ExpertiseController,
     RecommendationsController,
+    CoAuthorsController,
   ],
   providers: [
     ProgramsService,
     ExpertiseService,
     RecommendationsService,
     ExpertAssignmentService,
+    CoAuthorsService,
     FileService,
   ],
   exports: [
@@ -36,6 +40,7 @@ import { UsersModule } from '../users/users.module';
     ExpertiseService,
     RecommendationsService,
     ExpertAssignmentService,
+    CoAuthorsService,
     FileService,
   ],
 })

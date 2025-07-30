@@ -1,9 +1,9 @@
-import { IsString, IsEnum, IsOptional, IsNumber, Min } from 'class-validator';
-import { DictionaryType, DictionaryStatus } from '../enums/dictionary.enum';
+import { IsString, IsOptional, IsNumber, Min, IsUUID } from 'class-validator';
+import { DictionaryStatus } from '../enums/dictionary.enum';
 
 export class CreateDictionaryDto {
-  @IsEnum(DictionaryType)
-  type: DictionaryType;
+  @IsString()
+  type: string; // Изменено с enum на string для поддержки динамических типов
 
   @IsString()
   value: string;
@@ -18,8 +18,19 @@ export class CreateDictionaryDto {
   sortOrder?: number;
 
   @IsOptional()
-  @IsEnum(DictionaryStatus)
+  @IsString()
   status?: DictionaryStatus;
+
+  @IsOptional()
+  @IsString()
+  fullName?: string;
+
+  @IsOptional()
+  @IsUUID()
+  parentId?: string; // Для связи трудовых действий с функциями
+
+  @IsOptional()
+  metadata?: any;
 }
 
 export class UpdateDictionaryDto {
@@ -37,6 +48,17 @@ export class UpdateDictionaryDto {
   sortOrder?: number;
 
   @IsOptional()
-  @IsEnum(DictionaryStatus)
+  @IsString()
   status?: DictionaryStatus;
+
+  @IsOptional()
+  @IsString()
+  fullName?: string;
+
+  @IsOptional()
+  @IsUUID()
+  parentId?: string;
+
+  @IsOptional()
+  metadata?: any;
 }

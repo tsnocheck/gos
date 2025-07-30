@@ -17,12 +17,15 @@ import {
   CreateVersionDto,
   ProgramQueryDto,
 } from '../dto/program.dto';
+import { CreateProgramFormDto } from '../dto/program-creation.dto';
 
 @Injectable()
 export class ProgramsService {
   constructor(
     @InjectRepository(Program)
     private readonly programRepository: Repository<Program>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly fileService: FileService,
   ) {}
 
@@ -505,5 +508,88 @@ export class ProgramsService {
     res.setHeader('Content-Type', program.mimeType || 'application/octet-stream');
     
     return res.sendFile(filePath);
+  }
+
+  // Новый метод для создания полной программы
+  async createFullProgram(createProgramFormDto: CreateProgramFormDto, author: User): Promise<Program> {
+    if (!this.hasAnyRole(author, [UserRole.AUTHOR, UserRole.ADMIN])) {
+      throw new ForbiddenException('Только авторы и администраторы могут создавать программы');
+    }
+
+    // Проверяем существование соавторов
+    if (createProgramFormDto.author1) {
+      const author1 = await this.getAuthorById(createProgramFormDto.author1);
+      if (!author1) {
+        throw new BadRequestException('Первый соавтор не найден');
+      }
+    }
+
+    if (createProgramFormDto.author2) {
+      const author2 = await this.getAuthorById(createProgramFormDto.author2);
+      if (!author2) {
+        throw new BadRequestException('Второй соавтор не найден');
+      }
+    }
+
+    const program = this.programRepository.create({
+      // Основная информация
+      title: createProgramFormDto.title,
+      authorId: author.id,
+      
+      // Данные из формы создания
+      institution: createProgramFormDto.institution,
+      customInstitution: createProgramFormDto.customInstitution,
+      author1Id: createProgramFormDto.author1,
+      author2Id: createProgramFormDto.author2,
+      abbreviations: createProgramFormDto.abbreviations || [],
+      relevance: createProgramFormDto.relevance,
+      goal: createProgramFormDto.goal,
+      standard: createProgramFormDto.standard,
+      functions: createProgramFormDto.functions || [],
+      actions: createProgramFormDto.actions || [],
+      duties: createProgramFormDto.duties || [],
+      know: createProgramFormDto.know,
+      can: createProgramFormDto.can,
+      category: createProgramFormDto.category,
+      educationForm: createProgramFormDto.educationForm,
+      term: createProgramFormDto.term,
+      modules: createProgramFormDto.modules || [],
+      attestations: createProgramFormDto.attestations || [],
+      topics: createProgramFormDto.topics || [],
+      network: createProgramFormDto.network || [],
+      networkEnabled: createProgramFormDto.networkEnabled || false,
+      requirements: createProgramFormDto.requirements,
+      criteria: createProgramFormDto.criteria,
+      examples: createProgramFormDto.examples,
+      attempts: createProgramFormDto.attempts,
+      orgPedConditions: createProgramFormDto.orgPedConditions,
+      
+      status: ProgramStatus.DRAFT,
+    });
+
+    const savedProgram = await this.programRepository.save(program);
+
+    const createdProgram = await this.programRepository.findOne({
+      where: { id: savedProgram.id },
+      relations: ['author', 'author1', 'author2'],
+    });
+
+    if (!createdProgram) {
+      throw new NotFoundException('Не удалось найти созданную программу');
+    }
+
+    return createdProgram;
+  }
+
+  private async getAuthorById(authorId: string): Promise<User | null> {
+    const user = await this.userRepository.findOne({
+      where: { id: authorId },
+    });
+
+    if (!user || !this.hasRole(user, UserRole.AUTHOR)) {
+      return null;
+    }
+
+    return user;
   }
 }

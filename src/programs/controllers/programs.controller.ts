@@ -18,6 +18,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Express } from 'express';
 import { Response } from 'express';
 import { ProgramsService } from '../services/programs.service';
+import { ExpertAssignmentService } from '../services/expert-assignment.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -31,11 +32,19 @@ import {
   CreateVersionDto,
   ProgramQueryDto,
 } from '../dto/program.dto';
+import {
+  CreateProgramFormDto,
+  AssignExpertsDto,
+  ReplaceExpertsDto,
+} from '../dto/program-creation.dto';
 
 @Controller('programs')
 @UseGuards(JwtAuthGuard)
 export class ProgramsController {
-  constructor(private readonly programsService: ProgramsService) {}
+  constructor(
+    private readonly programsService: ProgramsService,
+    private readonly expertAssignmentService: ExpertAssignmentService,
+  ) {}
 
   @Post()
   @UseGuards(RolesGuard)
@@ -219,5 +228,40 @@ export class ProgramsController {
   @Get(':id/download')
   async downloadFile(@Param('id', ParseUUIDPipe) id: string, @Request() req, @Res() res: Response) {
     return await this.programsService.downloadFile(id, req.user, res);
+  }
+
+  // Новые методы для создания программы
+  @Post('create-full')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.AUTHOR, UserRole.ADMIN)
+  async createFullProgram(
+    @Body() createProgramFormDto: CreateProgramFormDto,
+    @Request() req,
+  ) {
+    return await this.programsService.createFullProgram(createProgramFormDto, req.user);
+  }
+
+  // Назначение экспертов вручную
+  @Post(':id/assign-experts')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async assignExperts(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() assignExpertsDto: AssignExpertsDto,
+    @Request() req,
+  ) {
+    return await this.expertAssignmentService.assignExpertsManually(id, assignExpertsDto, req.user);
+  }
+
+  // Замена экспертов
+  @Patch(':id/replace-experts')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async replaceExperts(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() replaceExpertsDto: ReplaceExpertsDto,
+    @Request() req,
+  ) {
+    return await this.expertAssignmentService.replaceExperts(id, replaceExpertsDto, req.user);
   }
 }

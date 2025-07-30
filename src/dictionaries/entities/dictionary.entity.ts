@@ -12,11 +12,8 @@ export class Dictionary {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({
-    type: 'enum',
-    enum: DictionaryType,
-  })
-  type: DictionaryType;
+  @Column({ type: 'varchar' })
+  type: string;
 
   @Column()
   value: string; // Значение справочника

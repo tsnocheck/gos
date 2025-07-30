@@ -20,7 +20,7 @@ export class DictionariesService {
   }
 
   // Получение всех значений справочника по типу
-  async findByType(type: DictionaryType, activeOnly: boolean = true): Promise<Dictionary[]> {
+  async findByType(type: string, activeOnly: boolean = true): Promise<Dictionary[]> {
     const query = this.dictionaryRepository.createQueryBuilder('dictionary')
       .where('dictionary.type = :type', { type })
       .orderBy('dictionary.sortOrder', 'ASC')
@@ -34,7 +34,7 @@ export class DictionariesService {
   }
 
   // Получение всех типов справочников
-  async getAllTypes(): Promise<{ type: DictionaryType; count: number }[]> {
+  async getAllTypes(): Promise<{ type: string; count: number }[]> {
     const result = await this.dictionaryRepository
       .createQueryBuilder('dictionary')
       .select('dictionary.type', 'type')
@@ -375,5 +375,68 @@ export class DictionariesService {
     }
     
     return path;
+  }
+
+  // Получение трудовых действий по ID трудовой функции
+  async getLaborActionsByFunction(functionId: string): Promise<Dictionary[]> {
+    return this.dictionaryRepository.find({
+      where: {
+        parentId: functionId,
+        type: 'labor_actions', // Используем строку вместо enum
+        status: DictionaryStatus.ACTIVE,
+      },
+      order: {
+        sortOrder: 'ASC',
+        value: 'ASC',
+      },
+    });
+  }
+
+  // Получение трудовых действий по типу функции с использованием формата {id}/labor_actions
+  async getLaborActionsByFunctionType(functionId: string): Promise<Dictionary[]> {
+    const functionType = `${functionId}/labor_actions`;
+    
+    return this.dictionaryRepository.find({
+      where: {
+        type: functionType,
+        status: DictionaryStatus.ACTIVE,
+      },
+      order: {
+        sortOrder: 'ASC',
+        value: 'ASC',
+      },
+    });
+  }
+
+  // Создание трудового действия, привязанного к функции
+  async createLaborAction(createDto: CreateDictionaryDto): Promise<Dictionary> {
+    // Если parentId указан, используем обычный способ
+    if (createDto.parentId) {
+      return this.create({
+        ...createDto,
+        type: 'labor_actions',
+      });
+    }
+
+    // Если используется формат типа {functionId}/labor_actions
+    if (createDto.type.includes('/labor_actions')) {
+      return this.create(createDto);
+    }
+
+    throw new Error('Необходимо указать либо parentId, либо тип в формате {functionId}/labor_actions');
+  }
+
+  // Получение всех трудовых функций
+  async getLaborFunctions(): Promise<Dictionary[]> {
+    return this.dictionaryRepository.find({
+      where: {
+        type: 'labor_functions',
+        status: DictionaryStatus.ACTIVE,
+      },
+      order: {
+        sortOrder: 'ASC',
+        value: 'ASC',
+      },
+    });
   }
 }

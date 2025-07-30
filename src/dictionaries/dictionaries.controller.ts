@@ -228,4 +228,27 @@ export class DictionariesController {
   async getDictionaryPath(@Param('id') id: string) {
     return await this.dictionariesService.getDictionaryPath(id);
   }
+
+  // Новые методы для работы с трудовыми функциями и действиями
+  @Get('labor-functions')
+  async getLaborFunctions() {
+    return this.dictionariesService.getLaborFunctions();
+  }
+
+  @Get('labor-actions/by-function/:functionId')
+  async getLaborActionsByFunction(@Param('functionId') functionId: string) {
+    return this.dictionariesService.getLaborActionsByFunction(functionId);
+  }
+
+  @Get('labor-actions/by-function-type/:functionId')
+  async getLaborActionsByFunctionType(@Param('functionId') functionId: string) {
+    return this.dictionariesService.getLaborActionsByFunctionType(functionId);
+  }
+
+  @Post('labor-actions')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async createLaborAction(@Body() createDictionaryDto: CreateDictionaryDto) {
+    return this.dictionariesService.createLaborAction(createDictionaryDto);
+  }
 }

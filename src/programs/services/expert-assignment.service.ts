@@ -1,10 +1,13 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Program } from '../entities/program.entity';
+import { Expertise } from '../entities/expertise.entity';
 import { UserRole } from '../../users/enums/user.enum';
 import { ExpertAssignmentAlgorithm, ExpertPosition } from '../enums/expert-assignment.enum';
+import { ProgramStatus, ExpertiseStatus } from '../enums/program.enum';
+import { AssignExpertsDto, ReplaceExpertsDto } from '../dto/program-creation.dto';
 
 @Injectable()
 export class ExpertAssignmentService {
@@ -16,6 +19,8 @@ export class ExpertAssignmentService {
     private userRepository: Repository<User>,
     @InjectRepository(Program)
     private programRepository: Repository<Program>,
+    @InjectRepository(Expertise)
+    private expertiseRepository: Repository<Expertise>,
   ) {}
 
   // Главный метод назначения экспертов
@@ -193,5 +198,177 @@ export class ExpertAssignmentService {
   private ensureUniqueExperts(experts: User[]): boolean {
     const uniqueIds = new Set(experts.map(expert => expert.id));
     return uniqueIds.size === experts.length;
+  }
+
+  // Новые методы для ручного назначения экспертов
+  async assignExpertsManually(programId: string, assignExpertsDto: AssignExpertsDto, assignedBy: User): Promise<Program> {
+    // Проверяем права доступа
+    if (!this.hasRole(assignedBy, UserRole.ADMIN)) {
+      throw new ForbiddenException('Только администраторы могут назначать экспертов');
+    }
+
+    // Проверяем количество экспертов
+    if (assignExpertsDto.expertIds.length > 3) {
+      throw new BadRequestException('Максимальное количество экспертов - 3');
+    }
+
+    if (assignExpertsDto.expertIds.length === 0) {
+      throw new BadRequestException('Необходимо назначить хотя бы одного эксперта');
+    }
+
+    // Находим программу
+    const program = await this.programRepository.findOne({
+      where: { id: programId },
+      relations: ['expertises', 'expertises.expert'],
+    });
+
+    if (!program) {
+      throw new NotFoundException('Программа не найдена');
+    }
+
+    // Проверяем статус программы
+    if (program.status !== ProgramStatus.SUBMITTED) {
+      throw new BadRequestException('Экспертизу можно назначить только для отправленных программ');
+    }
+
+    // Проверяем, что все пользователи являются экспертами
+    const experts = await this.userRepository.find({
+      where: { id: In(assignExpertsDto.expertIds) },
+    });
+
+    if (experts.length !== assignExpertsDto.expertIds.length) {
+      throw new BadRequestException('Один или несколько пользователей не найдены');
+    }
+
+    for (const expert of experts) {
+      if (!this.hasRole(expert, UserRole.EXPERT)) {
+        throw new BadRequestException(`Пользователь ${expert.email} не является экспертом`);
+      }
+    }
+
+    // Проверяем, что экспертов еще не назначали для этой программы
+    const existingExpertIds = program.expertises?.map(e => e.expertId) || [];
+    const duplicateExperts = assignExpertsDto.expertIds.filter(expertId => 
+      existingExpertIds.includes(expertId)
+    );
+
+    if (duplicateExperts.length > 0) {
+      throw new BadRequestException('Некоторые эксперты уже назначены для этой программы');
+    }
+
+    // Создаем экспертизы для каждого эксперта
+    for (const expertId of assignExpertsDto.expertIds) {
+      const expertise = this.expertiseRepository.create({
+        programId,
+        expertId,
+        assignedById: assignedBy.id,
+        status: ExpertiseStatus.PENDING,
+      });
+      await this.expertiseRepository.save(expertise);
+    }
+
+    // Обновляем статус программы
+    program.status = ProgramStatus.IN_REVIEW;
+    await this.programRepository.save(program);
+
+    const updatedProgram = await this.programRepository.findOne({
+      where: { id: programId },
+      relations: ['expertises', 'expertises.expert'],
+    });
+
+    if (!updatedProgram) {
+      throw new NotFoundException('Программа не найдена после обновления');
+    }
+
+    return updatedProgram;
+  }
+
+  async replaceExperts(
+    programId: string, 
+    replaceExpertsDto: ReplaceExpertsDto, 
+    assignedBy: User
+  ): Promise<Program> {
+    // Проверяем права доступа
+    if (!this.hasRole(assignedBy, UserRole.ADMIN)) {
+      throw new ForbiddenException('Только администраторы могут заменять экспертов');
+    }
+
+    // Проверяем количество новых экспертов
+    if (replaceExpertsDto.newExpertIds.length > 3) {
+      throw new BadRequestException('Максимальное количество экспертов - 3');
+    }
+
+    if (replaceExpertsDto.newExpertIds.length === 0) {
+      throw new BadRequestException('Необходимо назначить хотя бы одного нового эксперта');
+    }
+
+    // Находим программу
+    const program = await this.programRepository.findOne({
+      where: { id: programId },
+      relations: ['expertises', 'expertises.expert'],
+    });
+
+    if (!program) {
+      throw new NotFoundException('Программа не найдена');
+    }
+
+    // Проверяем, что старые эксперты действительно назначены
+    const currentExpertIds = program.expertises?.map(e => e.expertId) || [];
+    const invalidOldExperts = replaceExpertsDto.oldExpertIds.filter(expertId => 
+      !currentExpertIds.includes(expertId)
+    );
+
+    if (invalidOldExperts.length > 0) {
+      throw new BadRequestException('Некоторые указанные эксперты не назначены для этой программы');
+    }
+
+    // Проверяем, что новые пользователи являются экспертами
+    const newExperts = await this.userRepository.find({
+      where: { id: In(replaceExpertsDto.newExpertIds) },
+    });
+
+    if (newExperts.length !== replaceExpertsDto.newExpertIds.length) {
+      throw new BadRequestException('Один или несколько новых экспертов не найдены');
+    }
+
+    for (const expert of newExperts) {
+      if (!this.hasRole(expert, UserRole.EXPERT)) {
+        throw new BadRequestException(`Пользователь ${expert.email} не является экспертом`);
+      }
+    }
+
+    // Удаляем старые экспертизы
+    for (const oldExpertId of replaceExpertsDto.oldExpertIds) {
+      await this.expertiseRepository.delete({
+        programId,
+        expertId: oldExpertId,
+      });
+    }
+
+    // Создаем новые экспертизы
+    for (const newExpertId of replaceExpertsDto.newExpertIds) {
+      const expertise = this.expertiseRepository.create({
+        programId,
+        expertId: newExpertId,
+        assignedById: assignedBy.id,
+        status: ExpertiseStatus.PENDING,
+      });
+      await this.expertiseRepository.save(expertise);
+    }
+
+    const updatedProgram = await this.programRepository.findOne({
+      where: { id: programId },
+      relations: ['expertises', 'expertises.expert'],
+    });
+
+    if (!updatedProgram) {
+      throw new NotFoundException('Программа не найдена после обновления');
+    }
+
+    return updatedProgram;
+  }
+
+  private hasRole(user: User, role: UserRole): boolean {
+    return user && user.roles && Array.isArray(user.roles) && user.roles.includes(role);
   }
 }
