@@ -76,7 +76,7 @@ export class ProgramsController {
     return await this.programsService.getStatistics(req.user);
   }
 
-  @Get(':id')
+  @Get('id/:id')
   async findOne(@Param('id', ParseUUIDPipe) id: string, @Request() req) {
     return await this.programsService.findOne(id, req.user);
   }
