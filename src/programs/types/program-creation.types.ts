@@ -14,6 +14,16 @@ export enum DistanceEquipment {
   OTHER_DISTANCE = "other-distance",
 }
 
+/** Раздел программы */
+export enum ProgramSection {
+  /** Нормативно-правовой раздел */
+  NPR = "npr",
+  /** Предметно-методический раздел */
+  PMR = "pmr",
+  /** Вариативный раздел */
+  VR = "vr",
+}
+
 export interface Abbreviation {
   abbreviation: string; // Сокращение (например, "КОИРО")
   fullname: string;     // Полная расшифровка
@@ -26,6 +36,7 @@ export interface Module {
   practice: number;     // Часы практики
   distant: number;      // Часы дистанционного обучения
   kad: number;          // Количество аудиторных дней
+  section: ProgramSection; // Раздел программы
 }
 
 export interface Attestation {

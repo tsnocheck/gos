@@ -20,7 +20,8 @@ import {
   Topic, 
   NetworkOrg, 
   OrgPedConditions,
-  CreateProgramForm 
+  CreateProgramForm,
+  ProgramSection
 } from '../types/program-creation.types';
 
 export class AbbreviationDto implements Abbreviation {
@@ -53,6 +54,9 @@ export class ModuleDto implements Module {
   @IsInt()
   @Min(0)
   kad: number;
+
+  @IsEnum(ProgramSection)
+  section: ProgramSection;
 }
 
 export class AttestationDto implements Attestation {

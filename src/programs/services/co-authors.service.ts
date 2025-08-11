@@ -18,7 +18,7 @@ export class CoAuthorsService {
       .createQueryBuilder('user')
       .where('user.id != :currentUserId', { currentUserId: currentUser.id })
       .andWhere('user.status = :status', { status: UserStatus.ACTIVE })
-      .andWhere('user.roles @> :roles', { roles: JSON.stringify([UserRole.AUTHOR]) })
+      .andWhere("array_to_string(user.roles, ',') LIKE :pattern", { pattern: `%${UserRole.AUTHOR}%` })
       .select([
         'user.id',
         'user.firstName',
