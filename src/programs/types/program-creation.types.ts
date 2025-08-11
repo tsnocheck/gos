@@ -25,17 +25,16 @@ export interface Module {
   lecture: number;      // Часы лекций
   practice: number;     // Часы практики
   distant: number;      // Часы дистанционного обучения
-  total: number;        // Всего часов
   kad: number;          // Количество аудиторных дней
 }
 
 export interface Attestation {
   name: string;         // Название аттестации
+  moduleCode: string;   // Код модуля
   lecture: number;      // Часы лекций
   practice: number;     // Часы практики
   distant: number;      // Часы дистанционного обучения
   form: string;         // Форма аттестации (экзамен, зачёт)
-  total: number;        // Всего часов
 }
 
 export interface Topic {

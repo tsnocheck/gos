@@ -52,16 +52,15 @@ export class ModuleDto implements Module {
 
   @IsInt()
   @Min(0)
-  total: number;
-
-  @IsInt()
-  @Min(0)
   kad: number;
 }
 
 export class AttestationDto implements Attestation {
   @IsString()
   name: string;
+
+  @IsString()
+  moduleCode: string;
 
   @IsInt()
   @Min(0)
@@ -77,10 +76,6 @@ export class AttestationDto implements Attestation {
 
   @IsString()
   form: string;
-
-  @IsInt()
-  @Min(0)
-  total: number;
 }
 
 export class TopicDto implements Topic {
