@@ -10,6 +10,7 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { Program } from './program.entity';
 import { ExpertiseStatus } from '../enums/program.enum';
+import { ExpertPosition } from '../enums/expert-assignment.enum';
 
 @Entity('expertises')
 export class Expertise {
@@ -22,6 +23,16 @@ export class Expertise {
     default: ExpertiseStatus.PENDING,
   })
   status: ExpertiseStatus;
+
+  @Column({
+    type: 'enum',
+    enum: ExpertPosition,
+    nullable: true,
+  })
+  position: ExpertPosition; // Позиция эксперта (первый, второй, третий)
+
+  @Column({ type: 'timestamp', nullable: true })
+  assignedAt: Date; // Дата назначения эксперта
 
   @Column('text', { nullable: true })
   generalFeedback: string; // Общий отзыв эксперта

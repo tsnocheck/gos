@@ -37,14 +37,34 @@ export class ExpertAssignmentService {
       throw new NotFoundException('Программа не найдена');
     }
 
+    let result: { experts: User[], positions: ExpertPosition[] };
+    
     switch (algorithm) {
       case ExpertAssignmentAlgorithm.KOIRO:
-        return await this.assignExpertsKoiro(program);
+        result = await this.assignExpertsKoiro(program);
+        break;
       case ExpertAssignmentAlgorithm.REGIONAL:
-        return await this.assignExpertsRegional(program);
+        result = await this.assignExpertsRegional(program);
+        break;
       default:
         throw new BadRequestException('Неизвестный алгоритм назначения экспертов');
     }
+
+    // Создаем записи Expertise для каждого назначенного эксперта
+    for (let i = 0; i < result.experts.length; i++) {
+      const expert = result.experts[i];
+      const position = result.positions[i];
+
+      await this.expertiseRepository.save({
+        programId,
+        expertId: expert.id,
+        position,
+        assignedAt: new Date(),
+        status: ExpertiseStatus.PENDING
+      });
+    }
+
+    return result;
   }
 
   // Алгоритм КОИРО для назначения экспертов
@@ -133,19 +153,18 @@ export class ExpertAssignmentService {
 
   // Получить экспертов КОИРО
   private async getKoiroExperts(): Promise<User[]> {
-    return await this.userRepository.find({
-      where: {
-        roles: UserRole.EXPERT as any, // TypeORM array contains
-        workplace: 'КОИРО'
-      }
-    });
+    return await this.userRepository
+      .createQueryBuilder('user')
+      .where("array_to_string(user.roles, ',') LIKE :pattern", { pattern: `%${UserRole.EXPERT}%` })
+      .andWhere('user.workplace = :workplace', { workplace: 'КОИРО' })
+      .getMany();
   }
 
   // Получить всех экспертов
   private async getAllExperts(): Promise<User[]> {
     return await this.userRepository
       .createQueryBuilder('user')
-      .where(':role = ANY(user.roles)', { role: UserRole.EXPERT })
+      .where("array_to_string(user.roles, ',') LIKE :pattern", { pattern: `%${UserRole.EXPERT}%` })
       .getMany();
   }
 
@@ -153,8 +172,8 @@ export class ExpertAssignmentService {
   private async getExpertsBySubject(subject: string): Promise<User[]> {
     return await this.userRepository
       .createQueryBuilder('user')
-      .where(':role = ANY(user.roles)', { role: UserRole.EXPERT })
-      .andWhere(':subject = ANY(user.subjects)', { subject })
+      .where("array_to_string(user.roles, ',') LIKE :pattern", { pattern: `%${UserRole.EXPERT}%` })
+      .andWhere("array_to_string(user.subjects, ',') LIKE :subjectPattern", { subjectPattern: `%${subject}%` })
       .getMany();
   }
 
@@ -164,7 +183,7 @@ export class ExpertAssignmentService {
 
     return await this.userRepository
       .createQueryBuilder('user')
-      .where(':role = ANY(user.roles)', { role: UserRole.EXPERT })
+      .where("array_to_string(user.roles, ',') LIKE :pattern", { pattern: `%${UserRole.EXPERT}%` })
       .andWhere('user.department = :department', { department })
       .andWhere('user.position ILIKE :position', { position: '%начальник%' })
       .getOne();

@@ -8,6 +8,7 @@ import { UserRole } from '../../users/enums/user.enum';
 import { ProgramStatus } from '../enums/program.enum';
 import { Express } from 'express';
 import { FileService } from './file.service';
+import { ExpertAssignmentService } from './expert-assignment.service';
 import {
   CreateProgramDto,
   UpdateProgramDto,
@@ -27,6 +28,7 @@ export class ProgramsService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly fileService: FileService,
+    private readonly expertAssignmentService: ExpertAssignmentService,
   ) {}
 
   private hasRole(user: User, role: UserRole): boolean {
@@ -74,7 +76,17 @@ export class ProgramsService {
     }
 
     const program = this.programRepository.create(programData);
-    return await this.programRepository.save(program);
+    const savedProgram = await this.programRepository.save(program);
+
+    // Автоматически назначаем 3 экспертов
+    try {
+      await this.expertAssignmentService.assignExperts(savedProgram.id);
+      console.log(`Автоматически назначены эксперты для программы ${savedProgram.id}`);
+    } catch (error) {
+      console.warn(`Не удалось автоматически назначить экспертов для программы ${savedProgram.id}:`, error.message);
+    }
+
+    return savedProgram;
   }
 
   async findAll(query: ProgramQueryDto, user: User): Promise<{ data: Program[]; total: number }> {
@@ -568,6 +580,14 @@ export class ProgramsService {
     });
 
     const savedProgram = await this.programRepository.save(program);
+
+    // Автоматически назначаем 3 экспертов
+    try {
+      await this.expertAssignmentService.assignExperts(savedProgram.id);
+      console.log(`Автоматически назначены эксперты для программы ${savedProgram.id}`);
+    } catch (error) {
+      console.warn(`Не удалось автоматически назначить экспертов для программы ${savedProgram.id}:`, error.message);
+    }
 
     const createdProgram = await this.programRepository.findOne({
       where: { id: savedProgram.id },
