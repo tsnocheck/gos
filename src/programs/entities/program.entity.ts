@@ -185,14 +185,14 @@ export class Program {
   @Column({ type: 'boolean', default: false })
   networkEnabled: boolean; // Сетевая форма
 
-  @Column('text', { nullable: true })
-  criteria: string; // Критерии оценивания
+  @Column('json', { nullable: true })
+  lectureModule: any; // Содержание лекционных занятий
 
-  @Column('text', { nullable: true })
-  examples: string; // Примеры заданий
+  @Column('json', { nullable: true })
+  practiceModule: any; // Содержание практических занятий
 
-  @Column({ type: 'int', nullable: true })
-  attempts: number; // Количество попыток
+  @Column('json', { nullable: true })
+  distantModule: any; // Содержание дистанционного обучения
 
   @Column('json', { nullable: true })
   orgPedConditions: any; // Организационно-педагогические условия

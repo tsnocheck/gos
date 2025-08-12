@@ -86,22 +86,6 @@ export class ModuleDto implements Module {
 
   @IsEnum(ProgramSection)
   section: ProgramSection;
-
-  /** НОВОЕ!!! */
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => EducationModuleDto)
-  lectureModule?: EducationModuleDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => EducationModuleDto)
-  practiceModule?: EducationModuleDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => EducationModuleDto)
-  distantModule?: EducationModuleDto;
 }
 
 export class AttestationDto implements Attestation {
@@ -326,23 +310,21 @@ export class CreateProgramFormDto implements CreateProgramForm {
   @IsBoolean()
   networkEnabled?: boolean;
 
-  // Шаг 8: Формы аттестации и оценочные материалы
+  // Шаг 8: Содержание образовательного модуля
   @IsOptional()
-  @IsString()
-  requirements?: string;
+  @ValidateNested()
+  @Type(() => EducationModuleDto)
+  lectureModule?: EducationModuleDto;
 
   @IsOptional()
-  @IsString()
-  criteria?: string;
+  @ValidateNested()
+  @Type(() => EducationModuleDto)
+  practiceModule?: EducationModuleDto;
 
   @IsOptional()
-  @IsString()
-  examples?: string;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  attempts?: number;
+  @ValidateNested()
+  @Type(() => EducationModuleDto)
+  distantModule?: EducationModuleDto;
 
   // Шаг 9: Организационно-педагогические условия
   @IsOptional()

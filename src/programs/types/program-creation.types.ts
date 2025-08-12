@@ -37,12 +37,6 @@ export interface Module {
   distant: number;      // Часы дистанционного обучения
   kad: number;          // Количество аудиторных дней
   section: ProgramSection; // Раздел программы
-
-  /** НОВОЕ!!! */
-  // Шаг 8: Содержание образовательного модуля:
-  lectureModule?: EducationModule;  // Содержание лекционных занятий образовательного модуля
-  practiceModule?: EducationModule; // Содержание практических занятий образовательного модуля
-  distantModule?: EducationModule;  // Содержание самостоятельной работы в режиме дистанционного обучения образовательного модуля
 }
 
 export interface Attestation {
@@ -134,11 +128,10 @@ export interface CreateProgramForm {
   network?: NetworkOrg[];       // Организации для сетевой формы (таблица)
   networkEnabled?: boolean;     // Используется ли сетевая форма
 
-  // Шаг 8: Формы аттестации и оценочные материалы
-  requirements?: string;        // Описание требований к выполнению
-  criteria?: string;            // Критерии оценивания
-  examples?: string;            // Примеры заданий
-  attempts?: number;            // Количество попыток
+  // Шаг 8: Содержание образовательного модуля
+  lectureModule?: EducationModule;  // Содержание лекционных занятий образовательного модуля
+  practiceModule?: EducationModule; // Содержание практических занятий образовательного модуля
+  distantModule?: EducationModule;  // Содержание самостоятельной работы в режиме дистанционного обучения образовательного модуля
 
   // Шаг 9: Организационно-педагогические условия
   orgPedConditions?: OrgPedConditions;

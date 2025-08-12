@@ -570,10 +570,9 @@ export class ProgramsService {
       topics: createProgramFormDto.topics || [],
       network: createProgramFormDto.network || [],
       networkEnabled: createProgramFormDto.networkEnabled || false,
-      requirements: createProgramFormDto.requirements,
-      criteria: createProgramFormDto.criteria,
-      examples: createProgramFormDto.examples,
-      attempts: createProgramFormDto.attempts,
+      lectureModule: createProgramFormDto.lectureModule,
+      practiceModule: createProgramFormDto.practiceModule,
+      distantModule: createProgramFormDto.distantModule,
       orgPedConditions: createProgramFormDto.orgPedConditions,
       
       status: ProgramStatus.DRAFT,
