@@ -37,15 +37,40 @@ export interface Module {
   distant: number;      // Часы дистанционного обучения
   kad: number;          // Количество аудиторных дней
   section: ProgramSection; // Раздел программы
+
+  /** НОВОЕ!!! */
+  // Шаг 8: Содержание образовательного модуля:
+  lectureModule?: EducationModule;  // Содержание лекционных занятий образовательного модуля
+  practiceModule?: EducationModule; // Содержание практических занятий образовательного модуля
+  distantModule?: EducationModule;  // Содержание самостоятельной работы в режиме дистанционного обучения образовательного модуля
 }
 
 export interface Attestation {
+  moduleCode?: string;  // Код модуля
   name: string;         // Название аттестации
-  moduleCode: string;   // Код модуля
   lecture: number;      // Часы лекций
   practice: number;     // Часы практики
   distant: number;      // Часы дистанционного обучения
-  form: string;         // Форма аттестации (экзамен, зачёт)
+  form: string;         // Форма аттестации
+
+  /** НОВОЕ!!! */
+  requirements?: string; // Описание требований к выполнению
+  criteria?: string;     // Критерии оценивания
+  examples?: string;     // Примеры заданий
+  attempts?: number;     // Количество попыток
+}
+
+/** НОВОЕ!!! */
+export interface EducationModuleTopic {
+  topicName: string;
+  content: string[];    // Содержание практического занятия
+  forms: string[];      // Формы организации практического занятия
+  hours: number;        // Кол-во часов
+}
+
+export interface EducationModule {
+  name: string;
+  topics: EducationModuleTopic[];
 }
 
 export interface Topic {

@@ -21,8 +21,37 @@ import {
   NetworkOrg, 
   OrgPedConditions,
   CreateProgramForm,
-  ProgramSection
+  ProgramSection,
+  EducationModule,
+  EducationModuleTopic
 } from '../types/program-creation.types';
+
+export class EducationModuleTopicDto implements EducationModuleTopic {
+  @IsString()
+  topicName: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  content: string[];
+
+  @IsArray()
+  @IsString({ each: true })
+  forms: string[];
+
+  @IsInt()
+  @Min(0)
+  hours: number;
+}
+
+export class EducationModuleDto implements EducationModule {
+  @IsString()
+  name: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => EducationModuleTopicDto)
+  topics: EducationModuleTopicDto[];
+}
 
 export class AbbreviationDto implements Abbreviation {
   @IsString()
@@ -57,14 +86,31 @@ export class ModuleDto implements Module {
 
   @IsEnum(ProgramSection)
   section: ProgramSection;
+
+  /** НОВОЕ!!! */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => EducationModuleDto)
+  lectureModule?: EducationModuleDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => EducationModuleDto)
+  practiceModule?: EducationModuleDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => EducationModuleDto)
+  distantModule?: EducationModuleDto;
 }
 
 export class AttestationDto implements Attestation {
+  @IsOptional()
   @IsString()
-  name: string;
+  moduleCode?: string;
 
   @IsString()
-  moduleCode: string;
+  name: string;
 
   @IsInt()
   @Min(0)
@@ -80,6 +126,24 @@ export class AttestationDto implements Attestation {
 
   @IsString()
   form: string;
+
+  /** НОВОЕ!!! */
+  @IsOptional()
+  @IsString()
+  requirements?: string;
+
+  @IsOptional()
+  @IsString()
+  criteria?: string;
+
+  @IsOptional()
+  @IsString()
+  examples?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  attempts?: number;
 }
 
 export class TopicDto implements Topic {
