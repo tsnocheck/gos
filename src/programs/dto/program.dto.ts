@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsInt, IsUUID, IsDateString, IsBoolean, IsArray, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsInt, IsUUID, IsDateString, IsBoolean, IsArray, Min, Max, isArray } from 'class-validator';
 import { ProgramStatus, ProgramSection } from '../enums/program.enum';
 import { Type } from 'class-transformer';
 
@@ -159,8 +159,8 @@ export class CreateVersionDto {
 
 export class ProgramQueryDto {
   @IsOptional()
-  @IsEnum(ProgramStatus)
-  status?: ProgramStatus;
+  @IsArray()
+  'status[]'?: ProgramStatus[];
 
   @IsOptional()
   @IsUUID()
@@ -181,6 +181,7 @@ export class ProgramQueryDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Type(() => Number)
   page?: number;
 
   @IsOptional()

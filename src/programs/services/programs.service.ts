@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
 import { Program } from '../entities/program.entity';
@@ -32,28 +37,50 @@ export class ProgramsService {
   ) {}
 
   private hasRole(user: User, role: UserRole): boolean {
-    return user && user.roles && Array.isArray(user.roles) && user.roles.includes(role);
+    return (
+      user &&
+      user.roles &&
+      Array.isArray(user.roles) &&
+      user.roles.includes(role)
+    );
   }
 
   private hasAnyRole(user: User, roles: UserRole[]): boolean {
-    return user && user.roles && Array.isArray(user.roles) && roles.some(role => user.roles.includes(role));
+    return (
+      user &&
+      user.roles &&
+      Array.isArray(user.roles) &&
+      roles.some((role) => user.roles.includes(role))
+    );
   }
 
   private isOnlyAuthor(user: User): boolean {
-    return this.hasRole(user, UserRole.AUTHOR) && !this.hasRole(user, UserRole.ADMIN) && !this.hasRole(user, UserRole.EXPERT);
+    return (
+      this.hasRole(user, UserRole.AUTHOR) &&
+      !this.hasRole(user, UserRole.ADMIN) &&
+      !this.hasRole(user, UserRole.EXPERT)
+    );
   }
 
-  async create(createProgramDto: CreateProgramDto, author: User, file?: Express.Multer.File): Promise<Program> {
+  async create(
+    createProgramDto: CreateProgramDto,
+    author: User,
+    file?: Express.Multer.File,
+  ): Promise<Program> {
     if (!this.hasAnyRole(author, [UserRole.AUTHOR, UserRole.ADMIN])) {
-      throw new ForbiddenException('Только авторы и администраторы могут создавать программы');
+      throw new ForbiddenException(
+        'Только авторы и администраторы могут создавать программы',
+      );
     }
 
-    let fileData: {
-      fileName: string;
-      filePath: string;
-      fileSize: number;
-      mimeType: string;
-    } | undefined;
+    let fileData:
+      | {
+          fileName: string;
+          filePath: string;
+          fileSize: number;
+          mimeType: string;
+        }
+      | undefined;
 
     if (file) {
       fileData = await this.fileService.saveFile(file);
@@ -81,17 +108,24 @@ export class ProgramsService {
     // Автоматически назначаем 3 экспертов
     try {
       await this.expertAssignmentService.assignExperts(savedProgram.id);
-      console.log(`Автоматически назначены эксперты для программы ${savedProgram.id}`);
+      console.log(
+        `Автоматически назначены эксперты для программы ${savedProgram.id}`,
+      );
     } catch (error) {
-      console.warn(`Не удалось автоматически назначить экспертов для программы ${savedProgram.id}:`, error.message);
+      console.warn(
+        `Не удалось автоматически назначить экспертов для программы ${savedProgram.id}:`,
+        error.message,
+      );
     }
 
     return savedProgram;
   }
 
-  async findAll(query: ProgramQueryDto, user: User): Promise<{ data: Program[]; total: number }> {
+  async findAll(
+    query: ProgramQueryDto,
+    user: User,
+  ): Promise<{ data: Program[]; total: number }> {
     const {
-      status,
       authorId,
       search,
       sortBy = 'createdAt',
@@ -106,8 +140,10 @@ export class ProgramsService {
       .leftJoinAndSelect('program.approvedBy', 'approvedBy');
 
     // Фильтрация по статусу
-    if (status) {
-      queryBuilder.andWhere('program.status = :status', { status });
+    if (query['status[]']) {
+      queryBuilder.andWhere('program.status IN (:...status)', {
+        status: query['status[]'],
+      });
     }
 
     // Фильтрация по автору
@@ -124,7 +160,7 @@ export class ProgramsService {
     if (search) {
       queryBuilder.andWhere(
         '(program.title ILIKE :search OR program.description ILIKE :search)',
-        { search: `%${search}%` }
+        { search: `%${search}%` },
       );
     }
 
@@ -161,28 +197,48 @@ export class ProgramsService {
     return program;
   }
 
-  async update(id: string, updateProgramDto: UpdateProgramDto, user: User): Promise<Program> {
+  async update(
+    id: string,
+    updateProgramDto: UpdateProgramDto,
+    user: User,
+  ): Promise<Program> {
     const program = await this.findOne(id, user);
 
     // Проверка возможности редактирования
-    if (program.status !== ProgramStatus.DRAFT && program.status !== ProgramStatus.REJECTED) {
-      throw new BadRequestException('Можно редактировать только черновики или отклоненные программы');
+    if (
+      program.status !== ProgramStatus.DRAFT &&
+      program.status !== ProgramStatus.REJECTED
+    ) {
+      throw new BadRequestException(
+        'Можно редактировать только черновики или отклоненные программы',
+      );
     }
 
     // Проверка прав
     if (this.isOnlyAuthor(user) && program.authorId !== user.id) {
-      throw new ForbiddenException('Нет доступа к редактированию этой программы');
+      throw new ForbiddenException(
+        'Нет доступа к редактированию этой программы',
+      );
     }
 
     Object.assign(program, updateProgramDto);
     return await this.programRepository.save(program);
   }
 
-  async submit(id: string, submitDto: SubmitProgramDto, user: User): Promise<Program> {
+  async submit(
+    id: string,
+    submitDto: SubmitProgramDto,
+    user: User,
+  ): Promise<Program> {
     const program = await this.findOne(id, user);
 
-    if (program.status !== ProgramStatus.DRAFT && program.status !== ProgramStatus.REJECTED) {
-      throw new BadRequestException('Можно отправить на экспертизу только черновики или отклоненные программы');
+    if (
+      program.status !== ProgramStatus.DRAFT &&
+      program.status !== ProgramStatus.REJECTED
+    ) {
+      throw new BadRequestException(
+        'Можно отправить на экспертизу только черновики или отклоненные программы',
+      );
     }
 
     if (this.isOnlyAuthor(user) && program.authorId !== user.id) {
@@ -195,15 +251,23 @@ export class ProgramsService {
     return await this.programRepository.save(program);
   }
 
-  async approve(id: string, approveDto: ApproveProgramDto, admin: User): Promise<Program> {
+  async approve(
+    id: string,
+    approveDto: ApproveProgramDto,
+    admin: User,
+  ): Promise<Program> {
     if (!this.hasRole(admin, UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут одобрять программы');
+      throw new ForbiddenException(
+        'Только администраторы могут одобрять программы',
+      );
     }
 
     const program = await this.findOne(id, admin);
 
     if (program.status !== ProgramStatus.IN_REVIEW) {
-      throw new BadRequestException('Можно одобрить только программы на рассмотрении');
+      throw new BadRequestException(
+        'Можно одобрить только программы на рассмотрении',
+      );
     }
 
     program.status = ProgramStatus.APPROVED;
@@ -213,15 +277,26 @@ export class ProgramsService {
     return await this.programRepository.save(program);
   }
 
-  async reject(id: string, rejectDto: RejectProgramDto, admin: User): Promise<Program> {
+  async reject(
+    id: string,
+    rejectDto: RejectProgramDto,
+    admin: User,
+  ): Promise<Program> {
     if (!this.hasRole(admin, UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут отклонять программы');
+      throw new ForbiddenException(
+        'Только администраторы могут отклонять программы',
+      );
     }
 
     const program = await this.findOne(id, admin);
 
-    if (program.status !== ProgramStatus.IN_REVIEW && program.status !== ProgramStatus.SUBMITTED) {
-      throw new BadRequestException('Можно отклонить только отправленные или рассматриваемые программы');
+    if (
+      program.status !== ProgramStatus.IN_REVIEW &&
+      program.status !== ProgramStatus.SUBMITTED
+    ) {
+      throw new BadRequestException(
+        'Можно отклонить только отправленные или рассматриваемые программы',
+      );
     }
 
     program.status = ProgramStatus.REJECTED;
@@ -232,7 +307,9 @@ export class ProgramsService {
 
   async archive(id: string, admin: User): Promise<Program> {
     if (!this.hasRole(admin, UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут архивировать программы');
+      throw new ForbiddenException(
+        'Только администраторы могут архивировать программы',
+      );
     }
 
     const program = await this.findOne(id, admin);
@@ -242,15 +319,23 @@ export class ProgramsService {
     return await this.programRepository.save(program);
   }
 
-  async createVersion(id: string, createVersionDto: CreateVersionDto, user: User): Promise<Program> {
+  async createVersion(
+    id: string,
+    createVersionDto: CreateVersionDto,
+    user: User,
+  ): Promise<Program> {
     const originalProgram = await this.findOne(id, user);
 
     if (originalProgram.status !== ProgramStatus.APPROVED) {
-      throw new BadRequestException('Можно создать версию только одобренной программы');
+      throw new BadRequestException(
+        'Можно создать версию только одобренной программы',
+      );
     }
 
     if (this.isOnlyAuthor(user) && originalProgram.authorId !== user.id) {
-      throw new ForbiddenException('Нет доступа к созданию версии этой программы');
+      throw new ForbiddenException(
+        'Нет доступа к созданию версии этой программы',
+      );
     }
 
     const newVersion = this.programRepository.create({
@@ -296,7 +381,9 @@ export class ProgramsService {
 
   async remove(id: string, admin: User): Promise<void> {
     if (!this.hasRole(admin, UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут удалять программы');
+      throw new ForbiddenException(
+        'Только администраторы могут удалять программы',
+      );
     }
 
     const program = await this.findOne(id, admin);
@@ -322,9 +409,11 @@ export class ProgramsService {
       .select([
         'EXTRACT(YEAR FROM program.createdAt) as year',
         'EXTRACT(MONTH FROM program.createdAt) as month',
-        'COUNT(*) as count'
+        'COUNT(*) as count',
       ])
-      .where('program.createdAt >= :date', { date: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) })
+      .where('program.createdAt >= :date', {
+        date: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
+      })
       .groupBy('year, month')
       .orderBy('year, month')
       .getRawMany();
@@ -342,43 +431,51 @@ export class ProgramsService {
   // 1.5 Отправка программ в архив и возвращение из архива (для администратора)
   async archiveProgram(id: string, adminUser: User): Promise<Program> {
     if (!this.hasRole(adminUser, UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут архивировать программы');
+      throw new ForbiddenException(
+        'Только администраторы могут архивировать программы',
+      );
     }
 
     const program = await this.findOne(id, adminUser);
-    
+
     if (program.status === ProgramStatus.ARCHIVED) {
       throw new BadRequestException('Программа уже находится в архиве');
     }
 
     program.status = ProgramStatus.ARCHIVED;
     program.archivedAt = new Date();
-    
+
     return await this.programRepository.save(program);
   }
 
   async unarchiveProgram(id: string, adminUser: User): Promise<Program> {
     if (!this.hasRole(adminUser, UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут извлекать программы из архива');
+      throw new ForbiddenException(
+        'Только администраторы могут извлекать программы из архива',
+      );
     }
 
     const program = await this.findOne(id, adminUser);
-    
+
     if (program.status !== ProgramStatus.ARCHIVED) {
       throw new BadRequestException('Программа не находится в архиве');
     }
 
     // Восстанавливаем предыдущий статус (обычно draft или approved)
-    program.status = program.approvedAt ? ProgramStatus.APPROVED : ProgramStatus.DRAFT;
+    program.status = program.approvedAt
+      ? ProgramStatus.APPROVED
+      : ProgramStatus.DRAFT;
     (program as any).archivedAt = null;
-    
+
     return await this.programRepository.save(program);
   }
 
   // Получение архивированных программ
   async getArchivedPrograms(adminUser: User): Promise<Program[]> {
     if (!this.hasRole(adminUser, UserRole.ADMIN)) {
-      throw new ForbiddenException('Только администраторы могут просматривать архив программ');
+      throw new ForbiddenException(
+        'Только администраторы могут просматривать архив программ',
+      );
     }
 
     return await this.programRepository.find({
@@ -389,12 +486,17 @@ export class ProgramsService {
   }
 
   // 2.6 Получение, просмотр и скачивание заключения экспертов
-  async getExpertiseResults(programId: string, user: User): Promise<Expertise[]> {
+  async getExpertiseResults(
+    programId: string,
+    user: User,
+  ): Promise<Expertise[]> {
     const program = await this.findOne(programId, user);
-    
+
     // Проверяем права доступа
     if (this.isOnlyAuthor(user) && program.authorId !== user.id) {
-      throw new ForbiddenException('Вы можете просматривать только заключения по своим программам');
+      throw new ForbiddenException(
+        'Вы можете просматривать только заключения по своим программам',
+      );
     }
 
     return await this.programRepository
@@ -404,14 +506,14 @@ export class ProgramsService {
       .where('program.id = :programId', { programId })
       .andWhere('expertise.status = :status', { status: 'completed' })
       .getOne()
-      .then(p => p?.expertises || []);
+      .then((p) => p?.expertises || []);
   }
 
   // 2.7 Создание новой версии программы после отклонения
   async createNewVersion(programId: string, author: User): Promise<Program> {
     const originalProgram = await this.programRepository.findOne({
       where: { id: programId },
-      relations: ['author', 'expertises']
+      relations: ['author', 'expertises'],
     });
 
     if (!originalProgram) {
@@ -420,12 +522,16 @@ export class ProgramsService {
 
     // Проверяем, что пользователь является автором
     if (originalProgram.authorId !== author.id) {
-      throw new ForbiddenException('Только автор может создать новую версию программы');
+      throw new ForbiddenException(
+        'Только автор может создать новую версию программы',
+      );
     }
 
     // Проверяем, что программа отклонена
     if (originalProgram.status !== ProgramStatus.REJECTED) {
-      throw new BadRequestException('Новую версию можно создать только для отклоненной программы');
+      throw new BadRequestException(
+        'Новую версию можно создать только для отклоненной программы',
+      );
     }
 
     // Создаем новую версию программы
@@ -454,11 +560,14 @@ export class ProgramsService {
   }
 
   // 2.8 Получение всех версий программы
-  async getProgramVersions(programId: string, author: User): Promise<Program[]> {
+  async getProgramVersions(
+    programId: string,
+    author: User,
+  ): Promise<Program[]> {
     // Находим корневую программу
     const rootProgram = await this.programRepository.findOne({
       where: { id: programId },
-      relations: ['author']
+      relations: ['author'],
     });
 
     if (!rootProgram) {
@@ -466,7 +575,10 @@ export class ProgramsService {
     }
 
     // Проверяем права доступа
-    if (rootProgram.authorId !== author.id && !author.roles.includes(UserRole.ADMIN)) {
+    if (
+      rootProgram.authorId !== author.id &&
+      !author.roles.includes(UserRole.ADMIN)
+    ) {
       throw new ForbiddenException('Нет доступа к версиям этой программы');
     }
 
@@ -475,10 +587,10 @@ export class ProgramsService {
       where: [
         { id: programId },
         { parentId: programId },
-        { parentId: rootProgram.parentId || programId }
+        { parentId: rootProgram.parentId || programId },
       ],
       relations: ['author', 'expertises', 'expertises.expert'],
-      order: { version: 'ASC' }
+      order: { version: 'ASC' },
     });
 
     return versions;
@@ -487,7 +599,7 @@ export class ProgramsService {
   // Проверка возможности редактирования программы
   async canEditProgram(programId: string, author: User): Promise<boolean> {
     const program = await this.programRepository.findOne({
-      where: { id: programId }
+      where: { id: programId },
     });
 
     if (!program) {
@@ -505,7 +617,7 @@ export class ProgramsService {
 
   async downloadFile(id: string, user: User, res: any): Promise<void> {
     const program = await this.findOne(id, user);
-    
+
     if (!program.filePath) {
       throw new NotFoundException('Файл не найден для этой программы');
     }
@@ -515,17 +627,28 @@ export class ProgramsService {
     }
 
     const filePath = this.fileService.getFilePath(program.filePath);
-    
-    res.setHeader('Content-Disposition', `attachment; filename="${program.fileName}"`);
-    res.setHeader('Content-Type', program.mimeType || 'application/octet-stream');
-    
+
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${program.fileName}"`,
+    );
+    res.setHeader(
+      'Content-Type',
+      program.mimeType || 'application/octet-stream',
+    );
+
     return res.sendFile(filePath);
   }
 
   // Новый метод для создания полной программы
-  async createFullProgram(createProgramFormDto: CreateProgramFormDto, author: User): Promise<Program> {
+  async createFullProgram(
+    createProgramFormDto: CreateProgramFormDto,
+    author: User,
+  ): Promise<Program> {
     if (!this.hasAnyRole(author, [UserRole.AUTHOR, UserRole.ADMIN])) {
-      throw new ForbiddenException('Только авторы и администраторы могут создавать программы');
+      throw new ForbiddenException(
+        'Только авторы и администраторы могут создавать программы',
+      );
     }
 
     // Проверяем существование соавторов
@@ -547,7 +670,7 @@ export class ProgramsService {
       // Основная информация
       title: createProgramFormDto.title,
       authorId: author.id,
-      
+
       // Данные из формы создания
       institution: createProgramFormDto.institution,
       customInstitution: createProgramFormDto.customInstitution,
@@ -574,7 +697,7 @@ export class ProgramsService {
       practiceModule: createProgramFormDto.practiceModule,
       distantModule: createProgramFormDto.distantModule,
       orgPedConditions: createProgramFormDto.orgPedConditions,
-      
+
       status: ProgramStatus.DRAFT,
     });
 
@@ -583,9 +706,14 @@ export class ProgramsService {
     // Автоматически назначаем 3 экспертов
     try {
       await this.expertAssignmentService.assignExperts(savedProgram.id);
-      console.log(`Автоматически назначены эксперты для программы ${savedProgram.id}`);
+      console.log(
+        `Автоматически назначены эксперты для программы ${savedProgram.id}`,
+      );
     } catch (error) {
-      console.warn(`Не удалось автоматически назначить экспертов для программы ${savedProgram.id}:`, error.message);
+      console.warn(
+        `Не удалось автоматически назначить экспертов для программы ${savedProgram.id}:`,
+        error.message,
+      );
     }
 
     const createdProgram = await this.programRepository.findOne({
