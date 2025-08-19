@@ -5,8 +5,8 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
-  ManyToMany,
   OneToMany,
+  ManyToMany,
   JoinColumn,
   JoinTable,
 } from 'typeorm';
@@ -115,16 +115,25 @@ export class Program {
   @JoinColumn({ name: 'approvedById' })
   approvedBy: User;
 
-  @Column('json', { nullable: true })
-  coAuthorIds: string[]; // ID соавторов
+  @Column({ nullable: true })
+  author1Id: string; // ID первого соавтора
 
-  @ManyToMany(() => User)
-  @JoinTable({
-    name: 'program_coauthors',
-    joinColumn: { name: 'programId', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'userId', referencedColumnName: 'id' }
-  })
-  coAuthors: User[]; // Соавторы
+  @Column({ nullable: true })
+  author2Id: string; // ID второго соавтора
+
+  @Column('json', { nullable: true })
+  authors: string[]; // Массив ID авторов программы
+
+  @Column('json', { nullable: true })
+  coAuthorIds: string[]; // Массив ID соавторов программы
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'author1Id' })
+  author1: User; // Первый соавтор
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'author2Id' })
+  author2: User; // Второй соавтор
 
   // Изменения для поддержки создания программы
   @Column({ nullable: true })
@@ -154,11 +163,11 @@ export class Program {
   @Column('json', { nullable: true })
   duties: string[]; // Должностные обязанности
 
-  @Column('json', { nullable: true })
-  know: string[]; // Что должен знать
+  @Column('text', { nullable: true })
+  know: string; // Что должен знать
 
-  @Column('json', { nullable: true })
-  can: string[]; // Что должен уметь
+  @Column('text', { nullable: true })
+  can: string; // Что должен уметь
 
   @Column({ nullable: true })
   category: string; // Категория слушателей
@@ -198,6 +207,20 @@ export class Program {
 
   @Column({ nullable: true })
   approvedById: string;
+
+  @ManyToMany(() => User)
+  @JoinTable({
+    name: 'program_coauthors',
+    joinColumn: {
+      name: 'programId',
+      referencedColumnName: 'id',
+    },
+    inverseJoinColumn: {
+      name: 'coauthorId',
+      referencedColumnName: 'id',
+    },
+  })
+  coAuthors: User[];
 
   @OneToMany('Expertise', 'program')
   expertises: any[];

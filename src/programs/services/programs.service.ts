@@ -663,7 +663,7 @@ export class ProgramsService {
       }
     }
 
-    const program = this.programRepository.create({
+    const programData = {
       // Основная информация
       title: createProgramFormDto.title,
       authorId: author.id,
@@ -671,7 +671,8 @@ export class ProgramsService {
       // Данные из формы создания
       institution: createProgramFormDto.institution,
       customInstitution: createProgramFormDto.customInstitution,
-      coAuthorIds: createProgramFormDto.coAuthors || [],
+      authors: createProgramFormDto.coAuthors || [], // Сохраняем ID соавторов в поле authors
+      coAuthorIds: createProgramFormDto.coAuthors || [], // Также сохраняем для обратной совместимости
       abbreviations: createProgramFormDto.abbreviations || [],
       relevance: createProgramFormDto.relevance,
       goal: createProgramFormDto.goal,
@@ -679,8 +680,12 @@ export class ProgramsService {
       functions: createProgramFormDto.functions || [],
       actions: createProgramFormDto.actions || [],
       duties: createProgramFormDto.duties || [],
-      know: createProgramFormDto.know || [],
-      can: createProgramFormDto.can || [],
+      know: Array.isArray(createProgramFormDto.know) 
+        ? createProgramFormDto.know.join(', ') 
+        : (createProgramFormDto.know || ''),
+      can: Array.isArray(createProgramFormDto.can) 
+        ? createProgramFormDto.can.join(', ') 
+        : (createProgramFormDto.can || ''),
       category: createProgramFormDto.category,
       educationForm: createProgramFormDto.educationForm,
       term: createProgramFormDto.term,
@@ -695,11 +700,12 @@ export class ProgramsService {
       orgPedConditions: createProgramFormDto.orgPedConditions,
 
       status: ProgramStatus.DRAFT,
-    });
+    };
 
-    const savedProgram = await this.programRepository.save(program);
+    const program = this.programRepository.create(programData);
+    const savedProgram: Program = await this.programRepository.save(program);
 
-    // Устанавливаем связи с соавторами
+    // Устанавливаем связи с соавторами через Many-to-Many отношение
     if (coAuthors.length > 0) {
       savedProgram.coAuthors = coAuthors;
       await this.programRepository.save(savedProgram);
