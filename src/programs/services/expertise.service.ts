@@ -339,7 +339,13 @@ export class ExpertiseService {
       relations: ['program', 'program.author'],
     });
 
-    return expertises.map(expertise => expertise.program);
+    // Фильтруем только программы, которые действительно отправлены на экспертизу
+    return expertises
+      .map(expertise => expertise.program)
+      .filter(program => 
+        program.status === ProgramStatus.SUBMITTED || 
+        program.status === ProgramStatus.IN_REVIEW
+      );
   }
 
   // Начать экспертизу
