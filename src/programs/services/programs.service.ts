@@ -652,17 +652,14 @@ export class ProgramsService {
     }
 
     // Проверяем существование соавторов
-    if (createProgramFormDto.author1) {
-      const author1 = await this.getAuthorById(createProgramFormDto.author1);
-      if (!author1) {
-        throw new BadRequestException('Первый соавтор не найден');
-      }
-    }
-
-    if (createProgramFormDto.author2) {
-      const author2 = await this.getAuthorById(createProgramFormDto.author2);
-      if (!author2) {
-        throw new BadRequestException('Второй соавтор не найден');
+    const coAuthors: User[] = [];
+    if (createProgramFormDto.coAuthors && createProgramFormDto.coAuthors.length > 0) {
+      for (const coAuthorId of createProgramFormDto.coAuthors) {
+        const coAuthor = await this.getAuthorById(coAuthorId);
+        if (!coAuthor) {
+          throw new BadRequestException(`Соавтор с ID ${coAuthorId} не найден`);
+        }
+        coAuthors.push(coAuthor);
       }
     }
 
@@ -674,8 +671,7 @@ export class ProgramsService {
       // Данные из формы создания
       institution: createProgramFormDto.institution,
       customInstitution: createProgramFormDto.customInstitution,
-      author1Id: createProgramFormDto.author1,
-      author2Id: createProgramFormDto.author2,
+      coAuthorIds: createProgramFormDto.coAuthors || [],
       abbreviations: createProgramFormDto.abbreviations || [],
       relevance: createProgramFormDto.relevance,
       goal: createProgramFormDto.goal,
@@ -683,8 +679,8 @@ export class ProgramsService {
       functions: createProgramFormDto.functions || [],
       actions: createProgramFormDto.actions || [],
       duties: createProgramFormDto.duties || [],
-      know: createProgramFormDto.know,
-      can: createProgramFormDto.can,
+      know: createProgramFormDto.know || [],
+      can: createProgramFormDto.can || [],
       category: createProgramFormDto.category,
       educationForm: createProgramFormDto.educationForm,
       term: createProgramFormDto.term,
@@ -703,6 +699,12 @@ export class ProgramsService {
 
     const savedProgram = await this.programRepository.save(program);
 
+    // Устанавливаем связи с соавторами
+    if (coAuthors.length > 0) {
+      savedProgram.coAuthors = coAuthors;
+      await this.programRepository.save(savedProgram);
+    }
+
     // Автоматически назначаем 3 экспертов
     try {
       await this.expertAssignmentService.assignExperts(savedProgram.id);
@@ -718,7 +720,7 @@ export class ProgramsService {
 
     const createdProgram = await this.programRepository.findOne({
       where: { id: savedProgram.id },
-      relations: ['author', 'author1', 'author2'],
+      relations: ['author', 'coAuthors'],
     });
 
     if (!createdProgram) {

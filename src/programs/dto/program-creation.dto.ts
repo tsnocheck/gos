@@ -217,12 +217,9 @@ export class CreateProgramFormDto implements CreateProgramForm {
 
   // Шаг 3: Лист согласования
   @IsOptional()
-  @IsUUID()
-  author1?: string;
-
-  @IsOptional()
-  @IsUUID()
-  author2?: string;
+  @IsArray()
+  @IsUUID(undefined, { each: true })
+  coAuthors?: string[];
 
   // Шаг 4: Список сокращений
   @IsOptional()
@@ -260,12 +257,14 @@ export class CreateProgramFormDto implements CreateProgramForm {
   duties?: string[];
 
   @IsOptional()
-  @IsString()
-  know?: string;
+  @IsArray()
+  @IsString({ each: true })
+  know?: string[];
 
   @IsOptional()
-  @IsString()
-  can?: string;
+  @IsArray()
+  @IsString({ each: true })
+  can?: string[];
 
   @IsOptional()
   @IsString()

@@ -100,8 +100,7 @@ export interface CreateProgramForm {
   title: string;                // Название программы
 
   // Шаг 3: Лист согласования
-  author1?: string;             // ID первого соавтора (пользователь)
-  author2?: string;             // ID второго соавтора (пользователь)
+  coAuthors?: string[];         // ID соавторов (пользователи)
 
   // Шаг 4: Список сокращений
   abbreviations?: Abbreviation[]; // Массив сокращений (аббревиатура + расшифровка)
@@ -113,8 +112,8 @@ export interface CreateProgramForm {
   functions?: string[];         // Трудовые функции (если выбран проф. стандарт)
   actions?: string[];           // Трудовые действия (если выбран проф. стандарт)
   duties?: string[];            // Должностные обязанности (если выбран ЕКС)
-  know?: string;                // Что должен знать слушатель
-  can?: string;                 // Что должен уметь слушатель
+  know?: string[];              // Что должен знать слушатель
+  can?: string[];               // Что должен уметь слушатель
   category?: string;            // Категория слушателей
   educationForm?: string;       // Форма обучения (очная, заочная и т.д.)
   term?: number;                // Срок освоения программы (часы)

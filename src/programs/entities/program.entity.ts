@@ -5,8 +5,10 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  ManyToMany,
   OneToMany,
   JoinColumn,
+  JoinTable,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { ProgramStatus, ProgramSection } from '../enums/program.enum';
@@ -113,19 +115,16 @@ export class Program {
   @JoinColumn({ name: 'approvedById' })
   approvedBy: User;
 
-  @Column({ nullable: true })
-  author1Id: string; // ID первого соавтора
+  @Column('json', { nullable: true })
+  coAuthorIds: string[]; // ID соавторов
 
-  @Column({ nullable: true })
-  author2Id: string; // ID второго соавтора
-
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'author1Id' })
-  author1: User; // Первый соавтор
-
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'author2Id' })
-  author2: User; // Второй соавтор
+  @ManyToMany(() => User)
+  @JoinTable({
+    name: 'program_coauthors',
+    joinColumn: { name: 'programId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'userId', referencedColumnName: 'id' }
+  })
+  coAuthors: User[]; // Соавторы
 
   // Изменения для поддержки создания программы
   @Column({ nullable: true })
@@ -155,11 +154,11 @@ export class Program {
   @Column('json', { nullable: true })
   duties: string[]; // Должностные обязанности
 
-  @Column('text', { nullable: true })
-  know: string; // Что должен знать
+  @Column('json', { nullable: true })
+  know: string[]; // Что должен знать
 
-  @Column('text', { nullable: true })
-  can: string; // Что должен уметь
+  @Column('json', { nullable: true })
+  can: string[]; // Что должен уметь
 
   @Column({ nullable: true })
   category: string; // Категория слушателей

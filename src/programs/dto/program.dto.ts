@@ -62,6 +62,11 @@ export class CreateProgramDto {
   @IsOptional()
   @IsString()
   vrContent?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  authors?: string[]; // ID авторов программы
 }
 
 export class UpdateProgramDto {
@@ -125,6 +130,11 @@ export class UpdateProgramDto {
   @IsOptional()
   @IsString()
   vrContent?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  authors?: string[]; // ID авторов программы
 }
 
 export class SubmitProgramDto {

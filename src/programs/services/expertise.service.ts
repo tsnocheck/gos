@@ -326,8 +326,8 @@ export class ExpertiseService {
 
   // Получение доступных для экспертизы программ
   async getAvailablePrograms(expertUser: User): Promise<Program[]> {
-    if (!this.hasRole(expertUser, UserRole.EXPERT) && this.hasRole(expertUser, UserRole.ADMIN)) {
-      throw new ForbiddenException('Только эксперты могут просматривать программы для экспертизы');
+    if (!this.hasRole(expertUser, UserRole.EXPERT) && !this.hasRole(expertUser, UserRole.ADMIN)) {
+      throw new ForbiddenException('Только эксперты и администраторы могут просматривать программы для экспертизы');
     }
 
     // Получаем программы, которые отправлены на экспертизу и назначены данному эксперту
