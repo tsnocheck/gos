@@ -191,6 +191,7 @@ export class ProgramQueryDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Type(() => Number)
   page?: number;
 
   @IsOptional()
