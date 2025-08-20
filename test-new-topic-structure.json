@@ -1,0 +1,78 @@
+{
+  "title": "Программа с новой структурой тем",
+  "institution": "КОИРО",
+  "coAuthorIds": [],
+  "abbreviations": [
+    {
+      "abbreviation": "ДПП",
+      "fullname": "Дополнительная профессиональная программа"
+    }
+  ],
+  "relevance": "Актуальность программы...",
+  "goal": "Цель программы...",
+  "standard": "professional-standard",
+  "functions": ["Функция 1"],
+  "actions": ["Действие 1"],
+  "duties": ["Обязанность 1"],
+  "know": ["Знать основы"],
+  "can": ["Уметь применять"],
+  "category": "Учителя",
+  "educationForm": "очная",
+  "term": 72,
+  "modules": [
+    {
+      "code": "M1",
+      "name": "Модуль с новой структурой тем",
+      "lecture": 8,
+      "practice": 8,
+      "distant": 4,
+      "kad": 2,
+      "section": "npr",
+      "topics": [
+        {
+          "name": "Тема с детализированным содержанием",
+          "lecture": {
+            "content": ["Содержание лекции 1", "Содержание лекции 2"],
+            "forms": ["Презентация", "Дискуссия"],
+            "hours": 4
+          },
+          "practice": {
+            "content": ["Практическое задание 1", "Практическое задание 2"],
+            "forms": ["Семинар", "Мастер-класс"],
+            "hours": 4
+          },
+          "distant": {
+            "content": ["Самостоятельная работа", "Онлайн-тестирование"],
+            "forms": ["Электронный курс", "Форум"],
+            "hours": 2
+          }
+        }
+      ],
+      "network": [
+        {
+          "org": "Партнерская организация",
+          "participation": "Консультирование",
+          "form": "Дистанционно"
+        }
+      ],
+      "networkEnabled": true
+    }
+  ],
+  "attestations": [
+    {
+      "name": "Итоговая аттестация",
+      "lecture": 0,
+      "practice": 2,
+      "distant": 0,
+      "form": "Зачет",
+      "requirements": "Требования",
+      "criteria": "Критерии",
+      "examples": "Примеры",
+      "attempts": 3
+    }
+  ],
+  "orgPedConditions": {
+    "mainLiterature": "Основная литература...",
+    "equipment": ["computer", "projector"]
+  }
+}

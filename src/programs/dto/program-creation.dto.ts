@@ -17,13 +17,15 @@ import {
   Abbreviation, 
   Module, 
   Attestation, 
-  Topic, 
+  Topic,
+  TopicContent, 
   NetworkOrg, 
   OrgPedConditions,
   CreateProgramForm,
   ProgramSection,
   EducationModule,
-  EducationModuleTopic
+  EducationModuleTopic,
+  Standard
 } from '../types/program-creation.types';
 
 export class EducationModuleTopicDto implements EducationModuleTopic {
@@ -86,6 +88,23 @@ export class ModuleDto implements Module {
 
   @IsEnum(ProgramSection)
   section: ProgramSection;
+
+  // Шаг 7: Учебно-тематический план
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TopicDto)
+  topics?: TopicDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => NetworkOrgDto)
+  network?: NetworkOrgDto[];
+
+  @IsOptional()
+  @IsBoolean()
+  networkEnabled?: boolean;
 }
 
 export class AttestationDto implements Attestation {
@@ -130,21 +149,38 @@ export class AttestationDto implements Attestation {
   attempts?: number;
 }
 
+export class TopicContentDto implements TopicContent {
+  @IsArray()
+  @IsString({ each: true })
+  content: string[];
+
+  @IsArray()
+  @IsString({ each: true })
+  forms: string[];
+
+  @IsInt()
+  @Min(0)
+  hours: number;
+}
+
 export class TopicDto implements Topic {
   @IsString()
   name: string;
 
-  @IsInt()
-  @Min(0)
-  lecture: number;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => TopicContentDto)
+  lecture?: TopicContentDto;
 
-  @IsInt()
-  @Min(0)
-  practice: number;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => TopicContentDto)
+  practice?: TopicContentDto;
 
-  @IsInt()
-  @Min(0)
-  distant: number;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => TopicContentDto)
+  distant?: TopicContentDto;
 }
 
 export class NetworkOrgDto implements NetworkOrg {
@@ -216,10 +252,9 @@ export class CreateProgramFormDto implements CreateProgramForm {
   title: string;
 
   // Шаг 3: Лист согласования
-  @IsOptional()
   @IsArray()
   @IsUUID(undefined, { each: true })
-  coAuthors?: string[];
+  coAuthorIds: string[];
 
   // Шаг 4: Список сокращений
   @IsOptional()
@@ -238,8 +273,8 @@ export class CreateProgramFormDto implements CreateProgramForm {
   goal?: string;
 
   @IsOptional()
-  @IsString()
-  standard?: string;
+  @IsEnum(Standard)
+  standard?: Standard;
 
   @IsOptional()
   @IsArray()
@@ -292,44 +327,10 @@ export class CreateProgramFormDto implements CreateProgramForm {
   @Type(() => AttestationDto)
   attestations?: AttestationDto[];
 
-  // Шаг 7: Учебно-тематический план
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => TopicDto)
-  topics?: TopicDto[];
-
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => NetworkOrgDto)
-  network?: NetworkOrgDto[];
-
-  @IsOptional()
-  @IsBoolean()
-  networkEnabled?: boolean;
-
-  // Шаг 8: Содержание образовательного модуля
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => EducationModuleDto)
-  lectureModule?: EducationModuleDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => EducationModuleDto)
-  practiceModule?: EducationModuleDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => EducationModuleDto)
-  distantModule?: EducationModuleDto;
-
   // Шаг 9: Организационно-педагогические условия
-  @IsOptional()
   @ValidateNested()
   @Type(() => OrgPedConditionsDto)
-  orgPedConditions?: OrgPedConditionsDto;
+  orgPedConditions: OrgPedConditionsDto;
 }
 
 // DTO для получения доступных соавторов

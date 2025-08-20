@@ -653,8 +653,8 @@ export class ProgramsService {
 
     // Проверяем существование соавторов
     const coAuthors: User[] = [];
-    if (createProgramFormDto.coAuthors && createProgramFormDto.coAuthors.length > 0) {
-      for (const coAuthorId of createProgramFormDto.coAuthors) {
+    if (createProgramFormDto.coAuthorIds && createProgramFormDto.coAuthorIds.length > 0) {
+      for (const coAuthorId of createProgramFormDto.coAuthorIds) {
         const coAuthor = await this.getAuthorById(coAuthorId);
         if (!coAuthor) {
           throw new BadRequestException(`Соавтор с ID ${coAuthorId} не найден`);
@@ -663,7 +663,7 @@ export class ProgramsService {
       }
     }
 
-    const programData = {
+    const program = this.programRepository.create({
       // Основная информация
       title: createProgramFormDto.title,
       authorId: author.id,
@@ -671,8 +671,7 @@ export class ProgramsService {
       // Данные из формы создания
       institution: createProgramFormDto.institution,
       customInstitution: createProgramFormDto.customInstitution,
-      authors: createProgramFormDto.coAuthors || [], // Сохраняем ID соавторов в поле authors
-      coAuthorIds: createProgramFormDto.coAuthors || [], // Также сохраняем для обратной совместимости
+      coAuthorIds: createProgramFormDto.coAuthorIds || [],
       abbreviations: createProgramFormDto.abbreviations || [],
       relevance: createProgramFormDto.relevance,
       goal: createProgramFormDto.goal,
@@ -680,32 +679,21 @@ export class ProgramsService {
       functions: createProgramFormDto.functions || [],
       actions: createProgramFormDto.actions || [],
       duties: createProgramFormDto.duties || [],
-      know: Array.isArray(createProgramFormDto.know) 
-        ? createProgramFormDto.know.join(', ') 
-        : (createProgramFormDto.know || ''),
-      can: Array.isArray(createProgramFormDto.can) 
-        ? createProgramFormDto.can.join(', ') 
-        : (createProgramFormDto.can || ''),
+      know: createProgramFormDto.know || [],
+      can: createProgramFormDto.can || [],
       category: createProgramFormDto.category,
       educationForm: createProgramFormDto.educationForm,
       term: createProgramFormDto.term,
       modules: createProgramFormDto.modules || [],
       attestations: createProgramFormDto.attestations || [],
-      topics: createProgramFormDto.topics || [],
-      network: createProgramFormDto.network || [],
-      networkEnabled: createProgramFormDto.networkEnabled || false,
-      lectureModule: createProgramFormDto.lectureModule,
-      practiceModule: createProgramFormDto.practiceModule,
-      distantModule: createProgramFormDto.distantModule,
       orgPedConditions: createProgramFormDto.orgPedConditions,
 
       status: ProgramStatus.DRAFT,
-    };
+    });
 
-    const program = this.programRepository.create(programData);
-    const savedProgram: Program = await this.programRepository.save(program);
+    const savedProgram = await this.programRepository.save(program);
 
-    // Устанавливаем связи с соавторами через Many-to-Many отношение
+    // Устанавливаем связи с соавторами
     if (coAuthors.length > 0) {
       savedProgram.coAuthors = coAuthors;
       await this.programRepository.save(savedProgram);

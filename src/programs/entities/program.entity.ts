@@ -5,8 +5,8 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
-  OneToMany,
   ManyToMany,
+  OneToMany,
   JoinColumn,
   JoinTable,
 } from 'typeorm';
@@ -115,25 +115,16 @@ export class Program {
   @JoinColumn({ name: 'approvedById' })
   approvedBy: User;
 
-  @Column({ nullable: true })
-  author1Id: string; // ID первого соавтора
-
-  @Column({ nullable: true })
-  author2Id: string; // ID второго соавтора
-
   @Column('json', { nullable: true })
-  authors: string[]; // Массив ID авторов программы
+  coAuthorIds: string[]; // ID соавторов
 
-  @Column('json', { nullable: true })
-  coAuthorIds: string[]; // Массив ID соавторов программы
-
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'author1Id' })
-  author1: User; // Первый соавтор
-
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'author2Id' })
-  author2: User; // Второй соавтор
+  @ManyToMany(() => User)
+  @JoinTable({
+    name: 'program_coauthors',
+    joinColumn: { name: 'programId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'userId', referencedColumnName: 'id' }
+  })
+  coAuthors: User[]; // Соавторы
 
   // Изменения для поддержки создания программы
   @Column({ nullable: true })
@@ -163,11 +154,11 @@ export class Program {
   @Column('json', { nullable: true })
   duties: string[]; // Должностные обязанности
 
-  @Column('text', { nullable: true })
-  know: string; // Что должен знать
+  @Column('json', { nullable: true })
+  know: string[]; // Что должен знать
 
-  @Column('text', { nullable: true })
-  can: string; // Что должен уметь
+  @Column('json', { nullable: true })
+  can: string[]; // Что должен уметь
 
   @Column({ nullable: true })
   category: string; // Категория слушателей
@@ -185,42 +176,10 @@ export class Program {
   attestations: any[]; // Аттестации
 
   @Column('json', { nullable: true })
-  topics: any[]; // Темы
-
-  @Column('json', { nullable: true })
-  network: any[]; // Сетевые организации
-
-  @Column({ type: 'boolean', default: false })
-  networkEnabled: boolean; // Сетевая форма
-
-  @Column('json', { nullable: true })
-  lectureModule: any; // Содержание лекционных занятий
-
-  @Column('json', { nullable: true })
-  practiceModule: any; // Содержание практических занятий
-
-  @Column('json', { nullable: true })
-  distantModule: any; // Содержание дистанционного обучения
-
-  @Column('json', { nullable: true })
   orgPedConditions: any; // Организационно-педагогические условия
 
   @Column({ nullable: true })
   approvedById: string;
-
-  @ManyToMany(() => User)
-  @JoinTable({
-    name: 'program_coauthors',
-    joinColumn: {
-      name: 'programId',
-      referencedColumnName: 'id',
-    },
-    inverseJoinColumn: {
-      name: 'coauthorId',
-      referencedColumnName: 'id',
-    },
-  })
-  coAuthors: User[];
 
   @OneToMany('Expertise', 'program')
   expertises: any[];

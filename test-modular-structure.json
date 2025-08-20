@@ -1,0 +1,88 @@
+{
+  "title": "Программа с модульной структурой",
+  "institution": "КОИРО",
+  "coAuthors": [],
+  "abbreviations": [
+    {
+      "abbreviation": "ДПП",
+      "fullname": "Дополнительная профессиональная программа"
+    }
+  ],
+  "relevance": "Актуальность программы...",
+  "goal": "Цель программы...",
+  "standard": "professional-standard",
+  "functions": ["Функция 1"],
+  "actions": ["Действие 1"],
+  "duties": ["Обязанность 1"],
+  "know": ["Знать основы"],
+  "can": ["Уметь применять"],
+  "category": "Учителя",
+  "educationForm": "очная",
+  "term": 72,
+  "modules": [
+    {
+      "code": "M1",
+      "name": "Базовый модуль",
+      "lecture": 8,
+      "practice": 8,
+      "distant": 0,
+      "kad": 2,
+      "section": "npr",
+      "topics": [
+        {
+          "name": "Тема 1 модуля",
+          "lecture": 4,
+          "practice": 4,
+          "distant": 0
+        }
+      ],
+      "network": [
+        {
+          "org": "Партнерская организация",
+          "participation": "Консультирование",
+          "form": "Дистанционно"
+        }
+      ],
+      "networkEnabled": true,
+      "lectureModule": {
+        "name": "Лекционные занятия модуля",
+        "topics": [
+          {
+            "topicName": "Лекция модуля 1",
+            "content": ["Содержание лекции"],
+            "forms": ["Презентация"],
+            "hours": 2
+          }
+        ]
+      },
+      "practiceModule": {
+        "name": "Практические занятия модуля",
+        "topics": [
+          {
+            "topicName": "Практика модуля 1",
+            "content": ["Содержание практики"],
+            "forms": ["Семинар"],
+            "hours": 2
+          }
+        ]
+      }
+    }
+  ],
+  "attestations": [
+    {
+      "name": "Итоговая аттестация",
+      "lecture": 0,
+      "practice": 2,
+      "distant": 0,
+      "form": "Зачет",
+      "requirements": "Требования",
+      "criteria": "Критерии",
+      "examples": "Примеры",
+      "attempts": 3
+    }
+  ],
+  "orgPedConditions": {
+    "mainLiterature": "Основная литература...",
+    "equipment": ["computer", "projector"]
+  }
+}
