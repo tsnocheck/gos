@@ -40,8 +40,6 @@ export class DictionariesController {
 
   // Получение всех справочников (только для админов)
   @Get('all')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
   findAll() {
     return this.dictionariesService.findAll();
   }

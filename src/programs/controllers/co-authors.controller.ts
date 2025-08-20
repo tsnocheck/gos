@@ -14,7 +14,7 @@ export class CoAuthorsController {
   constructor(private readonly coAuthorsService: CoAuthorsService) {}
 
   @Get()
-  @Roles(UserRole.AUTHOR, UserRole.ADMIN)
+  @Roles(UserRole.AUTHOR, UserRole.ADMIN, UserRole.EXPERT)
   async getAvailableCoAuthors(
     @Query() query: GetAvailableCoAuthorsDto,
     @GetUser() user: User,
