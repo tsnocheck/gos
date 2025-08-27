@@ -2,8 +2,11 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { CandidateService } from '../users/services/candidate.service';
+import { RedisService } from '../redis/redis.service';
+import { UserResponseHelper } from '../users/helpers/user-response.helper';
 import { Session } from './entities/session.entity';
 import { LoginDto } from './dto/auth.dto';
 import { CreateUserDto } from '../users/dto/user.dto';
@@ -16,6 +19,8 @@ export class AuthService {
     private usersService: UsersService,
     private candidateService: CandidateService,
     private jwtService: JwtService,
+    private configService: ConfigService,
+    private redisService: RedisService,
     @InjectRepository(Session)
     private sessionRepository: Repository<Session>,
   ) {}
@@ -37,18 +42,31 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    return this.createSession(user.id);
+    const sessionData = await this.createSession(user.id);
+    
+    return {
+      ...sessionData,
+      user: UserResponseHelper.toUserResponse(user),
+    };
   }
 
   async createSession(userId: string) {
     const sessionKey = uuidv4();
     const payload = { userId, sessionKey };
     
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    // Используем конфигурируемые значения для времени жизни токенов
+    const accessTokenExpiry = this.configService.get<string>('JWT_ACCESS_EXPIRY', '24h');
+    const refreshTokenExpiry = this.configService.get<string>('JWT_REFRESH_EXPIRY', '14d');
+    
+    const accessToken = this.jwtService.sign(payload, { expiresIn: accessTokenExpiry });
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: refreshTokenExpiry });
+    
+    // Сохраняем токены в Redis
+    await this.redisService.setAccessToken(userId, sessionKey, accessToken);
+    await this.redisService.setRefreshToken(userId, sessionKey, refreshToken);
     
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+    expiresAt.setDate(expiresAt.getDate() + 14); // 14 дней для refresh token
 
     // Remove old sessions for this user
     await this.sessionRepository.delete({ userId });
@@ -90,6 +108,14 @@ export class AuthService {
   }
 
   async logout(sessionKey: string) {
+    // Сначала найдем сессию для получения userId
+    const session = await this.sessionRepository.findOne({ where: { sessionKey } });
+    
+    if (session) {
+      // Удаляем токены из Redis
+      await this.redisService.deleteTokens(session.userId, sessionKey);
+    }
+    
     await this.sessionRepository.delete({ sessionKey });
     return { message: 'Logged out successfully' };
   }

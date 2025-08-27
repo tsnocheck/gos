@@ -5,6 +5,8 @@ import { User } from './entities/user.entity';
 import { Candidate, CandidateStatus } from './entities/candidate.entity';
 import { CreateUserDto, UpdateUserDto } from './dto/user.dto';
 import { UserStatus } from './enums/user.enum';
+import { UserResponseHelper } from './helpers/user-response.helper';
+import { UserResponse } from './interfaces/user-response.interface';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -57,6 +59,12 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
     return user;
+  }
+
+  // Безопасный метод для API
+  async findOnePublic(id: string): Promise<UserResponse> {
+    const user = await this.findOne(id);
+    return UserResponseHelper.toUserResponse(user);
   }
 
   async findByEmail(email: string): Promise<User | null> {
@@ -112,10 +120,11 @@ export class UsersService {
   }
 
   // Административные методы
-  async findAllUsers(): Promise<User[]> {
-    return this.userRepository.find({
+  async findAllUsers(): Promise<UserResponse[]> {
+    const users = await this.userRepository.find({
       order: { createdAt: 'DESC' }
     });
+    return UserResponseHelper.toUserResponseArray(users);
   }
 
   async updateUserStatus(id: string, status: UserStatus): Promise<User> {

@@ -16,6 +16,17 @@ services:
     networks:
       - goszalupa_network
 
+  redis:
+    image: redis:7-alpine
+    container_name: goszalupa_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - goszalupa_network
+
   app:
     build:
       context: .
@@ -30,17 +41,21 @@ services:
       DB_USERNAME: postgres
       DB_PASSWORD: password
       DB_NAME: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       JWT_SECRET: your-super-secret-jwt-key-here-change-in-production
-      JWT_EXPIRES_IN: 15m
-      JWT_REFRESH_EXPIRES_IN: 7d
+      JWT_EXPIRES_IN: 24h
+      JWT_REFRESH_EXPIRES_IN: 14d
       SESSION_SECRET: your-super-secret-session-key-here-change-in-production
     depends_on:
       - postgres
+      - redis
     networks:
       - goszalupa_network
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   goszalupa_network:

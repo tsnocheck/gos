@@ -20,26 +20,29 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from './enums/user.enum';
+import { UserResponseHelper } from './helpers/user-response.helper';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  async create(@Body() createUserDto: CreateUserDto) {
+    const user = await this.usersService.create(createUserDto);
+    return UserResponseHelper.toUserResponse(user);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
-  getProfile(@Request() req) {
-    return this.usersService.findOne(req.user.id);
+  async getProfile(@Request() req) {
+    return this.usersService.findOnePublic(req.user.id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch('profile')
-  updateProfile(@Request() req, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(req.user.id, updateUserDto);
+  async updateProfile(@Request() req, @Body() updateUserDto: UpdateUserDto) {
+    const user = await this.usersService.update(req.user.id, updateUserDto);
+    return UserResponseHelper.toUserResponse(user);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -54,8 +57,8 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(id);
+  async findOne(@Param('id') id: string) {
+    return this.usersService.findOnePublic(id);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -82,28 +85,31 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Patch('admin/:id')
-  adminUpdateUser(
+  async adminUpdateUser(
     @Param('id') id: string,
     @Body() updateUserDto: AdminUpdateUserDto,
   ) {
-    return this.usersService.update(id, updateUserDto);
+    const user = await this.usersService.update(id, updateUserDto);
+    return UserResponseHelper.toUserResponse(user);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Patch('admin/:id/status')
-  updateUserStatus(
+  async updateUserStatus(
     @Param('id') id: string,
     @Body() statusDto: UpdateUserStatusDto,
   ) {
-    return this.usersService.updateUserStatus(id, statusDto.status);
+    const user = await this.usersService.updateUserStatus(id, statusDto.status);
+    return UserResponseHelper.toUserResponse(user);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Delete('admin/:id/soft')
-  softDeleteUser(@Param('id') id: string) {
-    return this.usersService.softDeleteUser(id);
+  async softDeleteUser(@Param('id') id: string) {
+    const user = await this.usersService.softDeleteUser(id);
+    return UserResponseHelper.toUserResponse(user);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -154,6 +154,8 @@ export class ExpertiseController {
     @Body() body: { oldExpertId: string; newExpertId: string },
     @Req() req,
   ) {
+    console.log('Controller replaceExpert called with:', { expertiseId, body, userId: req.user?.id });
+    
     return this.expertiseService.replaceExpert(
       expertiseId,
       body.oldExpertId,

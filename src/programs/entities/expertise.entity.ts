@@ -79,7 +79,7 @@ export class Expertise {
   @Column()
   programId: string;
 
-  @ManyToOne(() => User, { eager: true })
+  @ManyToOne(() => User)
   @JoinColumn({ name: 'expertId' })
   expert: User;
 

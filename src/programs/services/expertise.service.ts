@@ -456,20 +456,29 @@ export class ExpertiseService {
 
   // 1.8 Замена эксперта в случае необходимости
   async replaceExpert(expertiseId: string, oldExpertId: string, newExpertId: string, admin: User): Promise<Expertise> {
+    // // Временный лог для отладки
+    // throw new BadRequestException(`DEBUG: replaceExpert called with expertiseId=${expertiseId}, oldExpertId=${oldExpertId}, newExpertId=${newExpertId}`);
+    
+    console.log('replaceExpert called with:', { expertiseId, oldExpertId, newExpertId, adminId: admin.id });
+    
     if (!this.hasRole(admin, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут заменять экспертов');
     }
 
     const expertise = await this.expertiseRepository.findOne({
       where: { id: expertiseId },
-      relations: ['program', 'expert'],
+      relations: ['program'],
     });
+
+    console.log('Found expertise:', expertise ? { id: expertise?.id, expertId: expertise?.expertId } : 'null');
 
     if (!expertise) {
       throw new NotFoundException('Экспертиза не найдена');
     }
 
-    if (expertise.expertId !== oldExpertId) {
+    console.log('Checking expertId:', { currentExpertId: expertise?.expertId, expectedOldExpertId: oldExpertId });
+    
+    if (expertise?.expertId !== oldExpertId) {
       throw new BadRequestException('Указанный эксперт не назначен на данную экспертизу');
     }
 
@@ -478,6 +487,8 @@ export class ExpertiseService {
     if (!newExpert.roles.includes(UserRole.EXPERT)) {
       throw new BadRequestException('Новый пользователь не имеет роли эксперта');
     }
+
+    console.log('Before save - updating expertId from', expertise?.expertId, 'to', newExpertId);
 
     // Заменяем эксперта
     expertise.expertId = newExpertId;
@@ -488,7 +499,10 @@ export class ExpertiseService {
       expertise.status = ExpertiseStatus.PENDING;
     }
 
-    return await this.expertiseRepository.save(expertise);
+    const savedExpertise = await this.expertiseRepository.save(expertise);
+    console.log('After save - expertId is now:', savedExpertise.expertId);
+
+    return savedExpertise;
   }
 
   // Получение экспертиз для замены экспертов (административная функция)
