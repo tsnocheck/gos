@@ -22,10 +22,12 @@ export class ExpertiseService {
     private readonly expertiseRepository: Repository<Expertise>,
     @InjectRepository(Program)
     private readonly programRepository: Repository<Program>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   async create(createExpertiseDto: CreateExpertiseDto, assignedBy: User): Promise<Expertise> {
-    if (this.hasRole(assignedBy, UserRole.ADMIN)) {
+    if (!this.hasRole(assignedBy, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут назначать экспертизы');
     }
 
@@ -207,7 +209,7 @@ export class ExpertiseService {
   }
 
   async assignExpert(programId: string, assignDto: AssignExpertDto, admin: User): Promise<Expertise> {
-    if (this.hasRole(admin, UserRole.ADMIN)) {
+    if (!this.hasRole(admin, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут назначать экспертов');
     }
 
@@ -379,7 +381,7 @@ export class ExpertiseService {
   }
 
   async remove(id: string, admin: User): Promise<void> {
-    if (this.hasRole(admin, UserRole.ADMIN)) {
+    if (!this.hasRole(admin, UserRole.ADMIN)) {
       throw new ForbiddenException('Только администраторы могут удалять экспертизы');
     }
 
@@ -425,9 +427,15 @@ export class ExpertiseService {
   }
 
   private async getExpertById(expertId: string): Promise<User> {
-    // Здесь должна быть проверка через UsersService
-    // Для простоты предполагаем, что проверка проходит
-    return { id: expertId, roles: [UserRole.EXPERT] } as User;
+    const user = await this.userRepository.findOne({
+      where: { id: expertId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Пользователь не найден');
+    }
+
+    return user;
   }
 
   private calculateTotalScore(expertise: Expertise): void {
