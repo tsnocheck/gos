@@ -11,7 +11,9 @@ export class RedisService {
   }
 
   async set(key: string, value: any, ttl?: number): Promise<void> {
+    console.log(`Setting Redis key: ${key}, TTL: ${ttl}`);
     await this.cacheManager.set(key, value, ttl);
+    console.log(`Successfully set Redis key: ${key}`);
   }
 
   async del(key: string): Promise<void> {
@@ -32,7 +34,12 @@ export class RedisService {
   async setAccessToken(userId: string, sessionKey: string, token: string): Promise<void> {
     const key = `access_token:${userId}:${sessionKey}`;
     const ttl = 24 * 60 * 60; // 24 hours in seconds
+    console.log(`Setting access token key: ${key}`);
     await this.set(key, token, ttl);
+    
+    // Тестовая проверка сразу после установки
+    const retrieved = await this.get(key);
+    console.log(`Retrieved value for ${key}:`, retrieved ? 'EXISTS' : 'NULL');
   }
 
   async setRefreshToken(userId: string, sessionKey: string, token: string): Promise<void> {

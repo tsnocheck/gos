@@ -61,9 +61,16 @@ export class AuthService {
     const accessToken = this.jwtService.sign(payload, { expiresIn: accessTokenExpiry });
     const refreshToken = this.jwtService.sign(payload, { expiresIn: refreshTokenExpiry });
     
-    // Сохраняем токены в Redis
-    await this.redisService.setAccessToken(userId, sessionKey, accessToken);
-    await this.redisService.setRefreshToken(userId, sessionKey, refreshToken);
+    console.log(`Attempting to cache tokens for user ${userId} with session ${sessionKey}`);
+    
+    try {
+      // Сохраняем токены в Redis
+      await this.redisService.setAccessToken(userId, sessionKey, accessToken);
+      await this.redisService.setRefreshToken(userId, sessionKey, refreshToken);
+      console.log(`Successfully cached tokens for user ${userId}`);
+    } catch (error) {
+      console.error(`Failed to cache tokens for user ${userId}:`, error);
+    }
     
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 14); // 14 дней для refresh token
