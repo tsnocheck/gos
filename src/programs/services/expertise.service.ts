@@ -750,7 +750,7 @@ export class ExpertiseService {
       .getRawMany()
       .then(results => results.map(r => r.expertise_expertId));
 
-    // Получаем всех экспертов, исключая тех, кто уже участвовал
+    // Получаем всех экспертов, исключая тех, кто уже участвовал в этой программе
     const availableExperts = await this.userRepository
       .createQueryBuilder('user')
       .where("array_to_string(user.roles, ',') LIKE :pattern", { pattern: `%${UserRole.EXPERT}%` })
@@ -762,6 +762,22 @@ export class ExpertiseService {
       throw new BadRequestException('Недостаточно доступных экспертов для назначения новых рецензентов');
     }
 
+    // Для каждого эксперта считаем количество назначенных программ (нагрузку)
+    const expertLoads: { expert: User; load: number }[] = [];
+    for (const expert of availableExperts) {
+      // Считаем только активные/ожидающие экспертизы
+      const load = await this.expertiseRepository.count({
+        where: {
+          expertId: expert.id,
+          status: In([ExpertiseStatus.PENDING, ExpertiseStatus.IN_PROGRESS])
+        }
+      });
+      expertLoads.push({ expert, load });
+    }
+
+    // Сортируем экспертов по возрастанию нагрузки
+    expertLoads.sort((a, b) => a.load - b.load);
+
     // Удаляем старые экспертизы со статусом NEEDS_REVISION
     await this.expertiseRepository
       .createQueryBuilder()
@@ -771,14 +787,11 @@ export class ExpertiseService {
       .andWhere('status = :status', { status: ExpertiseStatus.NEEDS_REVISION })
       .execute();
 
-    // Назначаем 2 новых экспертов
-    const selectedExperts = availableExperts.slice(0, 2);
-    
+    // Назначаем 2 экспертов с минимальной нагрузкой
+    const selectedExperts = expertLoads.slice(0, 2).map(e => e.expert);
     for (let i = 0; i < selectedExperts.length; i++) {
       const expert = selectedExperts[i];
       const position = i === 0 ? ExpertPosition.FIRST : ExpertPosition.SECOND;
-      
-      // Создаем через QueryBuilder для избежания проблем с кэшем
       await this.expertiseRepository
         .createQueryBuilder()
         .insert()
@@ -793,7 +806,6 @@ export class ExpertiseService {
           revisionRound: program.version || 1
         })
         .execute();
-      
       console.log(`Назначен новый эксперт ${expert.firstName} ${expert.lastName} для программы "${program.title}" (версия ${program.version})`);
     }
   }
