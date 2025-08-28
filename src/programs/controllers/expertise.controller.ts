@@ -24,6 +24,8 @@ import {
   CompleteExpertiseDto,
   AssignExpertDto,
   ExpertiseQueryDto,
+  SendForRevisionDto,
+  ResubmitAfterRevisionDto,
 } from '../dto/expertise.dto';
 
 @Controller('expertise')
@@ -95,6 +97,28 @@ export class ExpertiseController {
     @Request() req,
   ) {
     return await this.expertiseService.complete(id, completeDto, req.user);
+  }
+
+  @Post(':id/send-for-revision')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.EXPERT)
+  async sendForRevision(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() revisionDto: SendForRevisionDto,
+    @Request() req,
+  ) {
+    return await this.expertiseService.sendForRevision(id, revisionDto, req.user);
+  }
+
+  @Post(':programId/resubmit-after-revision')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.AUTHOR)
+  async resubmitAfterRevision(
+    @Param('programId', ParseUUIDPipe) programId: string,
+    @Body() resubmitDto: ResubmitAfterRevisionDto,
+    @Request() req,
+  ) {
+    return await this.expertiseService.resubmitAfterRevision(programId, resubmitDto, req.user);
   }
 
   @Post('programs/:programId/assign')
@@ -223,5 +247,13 @@ export class ExpertiseController {
     } catch (error) {
       return { error: error.message };
     }
+  }
+
+  // Получение экспертиз, отправленных на доработку (для автора)
+  @Get('revisions/my')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.AUTHOR)
+  async getMyRevisions(@Request() req) {
+    return await this.expertiseService.getRevisionExpertises(req.user);
   }
 }

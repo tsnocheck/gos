@@ -109,6 +109,28 @@ export class CompleteExpertiseDto {
   expertComments?: string;
 }
 
+export class SendForRevisionDto {
+  @IsString()
+  revisionComments: string; // Комментарии с замечаниями для доработки
+
+  @IsOptional()
+  @IsString()
+  generalFeedback?: string; // Общий отзыв эксперта
+
+  @IsOptional()
+  @IsString()
+  recommendations?: string; // Рекомендации по улучшению
+}
+
+export class ResubmitAfterRevisionDto {
+  @IsString()
+  revisionNotes: string; // Заметки автора о внесенных изменениях
+
+  @IsOptional()
+  @IsString()
+  changesSummary?: string; // Краткое описание изменений
+}
+
 export class AssignExpertDto {
   @IsUUID()
   expertId: string;

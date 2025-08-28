@@ -91,6 +91,21 @@ export class Program {
   @Column('text', { nullable: true })
   rejectionReason: string; // Причина отклонения
 
+  @Column('text', { nullable: true })
+  currentRevisionComments: string; // Актуальные комментарии для доработки
+
+  @Column({ type: 'timestamp', nullable: true })
+  sentForRevisionAt: Date; // Дата отправки на доработку
+
+  @Column({ type: 'int', default: 0 })
+  revisionCount: number; // Количество доработок
+
+  @Column({ type: 'timestamp', nullable: true })
+  resubmittedAt: Date; // Дата повторной отправки после доработки
+
+  @Column('text', { nullable: true })
+  revisionHistory: string; // История доработок в JSON формате
+
   @Column({ nullable: true })
   fileName: string; // Оригинальное имя файла
 

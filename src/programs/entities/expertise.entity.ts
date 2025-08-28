@@ -71,6 +71,15 @@ export class Expertise {
   @Column({ type: 'boolean', default: false })
   isRecommendedForApproval: boolean; // Рекомендуется к одобрению
 
+  @Column('text', { nullable: true })
+  revisionComments: string; // Комментарии для доработки
+
+  @Column({ type: 'timestamp', nullable: true })
+  sentForRevisionAt: Date; // Дата отправки на доработку
+
+  @Column({ type: 'int', default: 1 })
+  revisionRound: number; // Номер круга доработки
+
   // Связи
   @ManyToOne(() => Program, program => program.expertises, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'programId' })

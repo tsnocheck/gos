@@ -6,12 +6,15 @@ import { Program } from '../entities/program.entity';
 import { User } from '../../users/entities/user.entity';
 import { UserRole } from '../../users/enums/user.enum';
 import { ExpertiseStatus, ProgramStatus } from '../enums/program.enum';
+import { ExpertPosition } from '../enums/expert-assignment.enum';
 import {
   CreateExpertiseDto,
   UpdateExpertiseDto,
   CompleteExpertiseDto,
   AssignExpertDto,
   ExpertiseQueryDto,
+  SendForRevisionDto,
+  ResubmitAfterRevisionDto,
 } from '../dto/expertise.dto';
 import { ExpertiseCriteriaDto } from '../dto/expertise-criteria.dto';
 
@@ -636,5 +639,174 @@ export class ExpertiseService {
 
   private isOnlyAuthor(user: User): boolean {
     return this.hasRole(user, UserRole.AUTHOR) && !this.hasRole(user, UserRole.ADMIN) && !this.hasRole(user, UserRole.EXPERT);
+  }
+
+  // Отправка программы на доработку экспертом
+  async sendForRevision(expertiseId: string, sendForRevisionDto: SendForRevisionDto, expert: User): Promise<Expertise> {
+    const expertise = await this.expertiseRepository.findOne({
+      where: { id: expertiseId },
+      relations: ['program', 'expert', 'program.author']
+    });
+
+    if (!expertise) {
+      throw new NotFoundException('Экспертиза не найдена');
+    }
+
+    if (expertise.expertId !== expert.id) {
+      throw new ForbiddenException('Только назначенный эксперт может отправить программу на доработку');
+    }
+
+    if (expertise.status !== ExpertiseStatus.IN_PROGRESS) {
+      throw new BadRequestException('Можно отправить на доработку только экспертизу в процессе');
+    }
+
+    // Обновляем экспертизу
+    expertise.status = ExpertiseStatus.NEEDS_REVISION;
+    expertise.revisionComments = sendForRevisionDto.revisionComments;
+    if (sendForRevisionDto.generalFeedback) {
+      expertise.generalFeedback = sendForRevisionDto.generalFeedback;
+    }
+    if (sendForRevisionDto.recommendations) {
+      expertise.recommendations = sendForRevisionDto.recommendations;
+    }
+    expertise.sentForRevisionAt = new Date();
+    expertise.reviewedAt = new Date();
+
+    // Обновляем статус программы
+    await this.programRepository.update(expertise.programId, {
+      status: ProgramStatus.NEEDS_REVISION
+    });
+
+    const savedExpertise = await this.expertiseRepository.save(expertise);
+
+    console.log(`Программа "${expertise.program.title}" отправлена на доработку экспертом ${expert.firstName} ${expert.lastName}`);
+    
+    return savedExpertise;
+  }
+
+  // Повторная отправка программы после доработки
+  async resubmitAfterRevision(programId: string, resubmitDto: ResubmitAfterRevisionDto, author: User): Promise<Program> {
+    const program = await this.programRepository.findOne({
+      where: { id: programId },
+      relations: ['expertises', 'expertises.expert', 'author']
+    });
+
+    if (!program) {
+      throw new NotFoundException('Программа не найдена');
+    }
+
+    if (program.authorId !== author.id) {
+      throw new ForbiddenException('Только автор программы может отправить её на повторную экспертизу');
+    }
+
+    if (program.status !== ProgramStatus.NEEDS_REVISION) {
+      throw new BadRequestException('Программа должна иметь статус "требует доработки"');
+    }
+
+    // Увеличиваем номер версии программы
+    program.version = (program.version || 1) + 1;
+    program.status = ProgramStatus.IN_REVIEW;
+    program.updatedAt = new Date();
+
+    // Добавляем заметки о ревизии
+    const revisionNotes = {
+      revisionRound: program.version,
+      revisionNotes: resubmitDto.revisionNotes,
+      changesSummary: resubmitDto.changesSummary,
+      resubmittedAt: new Date()
+    };
+
+    // Сохраняем заметки в специальном поле (если есть) или в комментариях
+    if (program.revisionHistory) {
+      const history = JSON.parse(program.revisionHistory);
+      history.push(revisionNotes);
+      program.revisionHistory = JSON.stringify(history);
+    } else {
+      program.revisionHistory = JSON.stringify([revisionNotes]);
+    }
+
+    // Назначаем НОВЫХ экспертов (не тех же самых)
+    await this.assignNewExpertsForRevision(program);
+
+    // Сохраняем программу после назначения экспертов через обновление
+    await this.programRepository.update(program.id, {
+      version: program.version,
+      status: program.status,
+      revisionHistory: program.revisionHistory
+    });
+
+    console.log(`Программа "${program.title}" отправлена на повторную экспертизу (версия ${program.version})`);
+    
+    return program;
+  }
+
+  // Назначение новых экспертов для повторной экспертизы
+  private async assignNewExpertsForRevision(program: Program): Promise<void> {
+    // Получаем ID экспертов, которые уже участвовали в экспертизе этой программы
+    const previousExpertIds = await this.expertiseRepository
+      .createQueryBuilder('expertise')
+      .select('expertise.expertId')
+      .where('expertise.programId = :programId', { programId: program.id })
+      .getRawMany()
+      .then(results => results.map(r => r.expertise_expertId));
+
+    // Получаем всех экспертов, исключая тех, кто уже участвовал
+    const availableExperts = await this.userRepository
+      .createQueryBuilder('user')
+      .where("array_to_string(user.roles, ',') LIKE :pattern", { pattern: `%${UserRole.EXPERT}%` })
+      .andWhere('user.id NOT IN (:...excludeIds)', { excludeIds: previousExpertIds.length > 0 ? previousExpertIds : [''] })
+      .andWhere('user.status = :status', { status: 'active' })
+      .getMany();
+
+    if (availableExperts.length < 2) {
+      throw new BadRequestException('Недостаточно доступных экспертов для назначения новых рецензентов');
+    }
+
+    // Удаляем старые экспертизы со статусом NEEDS_REVISION
+    await this.expertiseRepository
+      .createQueryBuilder()
+      .delete()
+      .from('expertises')
+      .where('programId = :programId', { programId: program.id })
+      .andWhere('status = :status', { status: ExpertiseStatus.NEEDS_REVISION })
+      .execute();
+
+    // Назначаем 2 новых экспертов
+    const selectedExperts = availableExperts.slice(0, 2);
+    
+    for (let i = 0; i < selectedExperts.length; i++) {
+      const expert = selectedExperts[i];
+      const position = i === 0 ? ExpertPosition.FIRST : ExpertPosition.SECOND;
+      
+      // Создаем через QueryBuilder для избежания проблем с кэшем
+      await this.expertiseRepository
+        .createQueryBuilder()
+        .insert()
+        .into('expertises')
+        .values({
+          programId: program.id,
+          expertId: expert.id,
+          assignedById: program.authorId,
+          status: ExpertiseStatus.PENDING,
+          position: position,
+          assignedAt: new Date(),
+          revisionRound: program.version || 1
+        })
+        .execute();
+      
+      console.log(`Назначен новый эксперт ${expert.firstName} ${expert.lastName} для программы "${program.title}" (версия ${program.version})`);
+    }
+  }
+
+  // Получение экспертиз, отправленных на доработку (для автора)
+  async getRevisionExpertises(author: User): Promise<Expertise[]> {
+    return await this.expertiseRepository.find({
+      where: {
+        status: ExpertiseStatus.NEEDS_REVISION,
+        program: { authorId: author.id }
+      },
+      relations: ['program', 'expert'],
+      order: { sentForRevisionAt: 'DESC' }
+    });
   }
 }

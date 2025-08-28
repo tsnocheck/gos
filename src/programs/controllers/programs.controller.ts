@@ -19,6 +19,7 @@ import { Express } from 'express';
 import { Response } from 'express';
 import { ProgramsService } from '../services/programs.service';
 import { ExpertAssignmentService } from '../services/expert-assignment.service';
+import { ExpertiseService } from '../services/expertise.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -37,6 +38,7 @@ import {
   AssignExpertsDto,
   ReplaceExpertsDto,
 } from '../dto/program-creation.dto';
+import { ResubmitAfterRevisionDto } from '../dto/expertise.dto';
 
 @Controller('programs')
 @UseGuards(JwtAuthGuard)
@@ -44,6 +46,7 @@ export class ProgramsController {
   constructor(
     private readonly programsService: ProgramsService,
     private readonly expertAssignmentService: ExpertAssignmentService,
+    private readonly expertiseService: ExpertiseService,
   ) {}
 
   @Post()
@@ -263,5 +266,17 @@ export class ProgramsController {
     @Request() req,
   ) {
     return await this.expertAssignmentService.replaceExperts(id, replaceExpertsDto, req.user);
+  }
+
+  // Повторная отправка программы после доработки
+  @Post(':id/resubmit-after-revision')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.AUTHOR)
+  async resubmitAfterRevision(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() resubmitDto: ResubmitAfterRevisionDto,
+    @Request() req,
+  ) {
+    return await this.expertiseService.resubmitAfterRevision(id, resubmitDto, req.user);
   }
 }

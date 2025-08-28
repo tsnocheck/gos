@@ -2,6 +2,7 @@ export enum ProgramStatus {
   DRAFT = 'draft',           // Черновик
   SUBMITTED = 'submitted',   // Отправлена на экспертизу
   IN_REVIEW = 'in_review',   // На рассмотрении
+  NEEDS_REVISION = 'needs_revision', // Требует доработки
   APPROVED = 'approved',     // Одобрена
   REJECTED = 'rejected',     // Отклонена
   ARCHIVED = 'archived',     // В архиве
@@ -19,4 +20,5 @@ export enum ExpertiseStatus {
   COMPLETED = 'completed',   // Экспертиза завершена
   APPROVED = 'approved',     // Одобрено экспертом
   REJECTED = 'rejected',     // Отклонено экспертом
+  NEEDS_REVISION = 'needs_revision', // Отправлено на доработку
 }
