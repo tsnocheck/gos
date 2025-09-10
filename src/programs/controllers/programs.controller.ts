@@ -38,7 +38,6 @@ import {
   AssignExpertsDto,
   ReplaceExpertsDto,
 } from '../dto/program-creation.dto';
-import { ResubmitAfterRevisionDto } from '../dto/expertise.dto';
 
 @Controller('programs')
 @UseGuards(JwtAuthGuard)
@@ -268,15 +267,4 @@ export class ProgramsController {
     return await this.expertAssignmentService.replaceExperts(id, replaceExpertsDto, req.user);
   }
 
-  // Повторная отправка программы после доработки
-  @Post(':id/resubmit-after-revision')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.AUTHOR)
-  async resubmitAfterRevision(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() resubmitDto: ResubmitAfterRevisionDto,
-    @Request() req,
-  ) {
-    return await this.expertiseService.resubmitAfterRevision(id, resubmitDto, req.user);
-  }
 }

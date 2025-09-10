@@ -88,13 +88,14 @@ async function testRevisionWorkflow() {
     const programWithExpertises = await programsService.findOne(program.id, admin);
     console.log(`✅ Автоматически назначено ${programWithExpertises.expertises.length} экспертов`);
 
-    // 5. Найдем первую экспертизу и начнем её
+    // 5. Найдем первую экспертизу и отправим экспертизу с отрицательным результатом
     const firstExpertise = programWithExpertises.expertises[0];
     const assignedExpert = firstExpertise.expert;
     
-    console.log('\n🔍 Начало экспертизы...');
-    await expertiseService.update(firstExpertise.id, { 
-      generalFeedback: 'Экспертиза начата'
+    console.log('\n🔍 Отправка экспертизы с отрицательным результатом...');
+    await expertiseService.sendForRevision(firstExpertise.id, {
+      revisionComments: 'Программа требует доработки по следующим пунктам...',
+      generalFeedback: 'Общая обратная связь эксперта'
     }, assignedExpert);
 
     // 6. Отправляем программу на доработку
@@ -121,21 +122,10 @@ async function testRevisionWorkflow() {
     // 8. Автор исправляет программу и отправляет повторно
     console.log('\n🔄 Повторная отправка после доработки...');
     const resubmitDto = {
-      revisionNotes: 'Внесены следующие изменения:\n1. Добавлены интерактивные методы обучения\n2. Детализированы критерии оценки\n3. Расширена практическая часть',
-      changesSummary: 'Программа полностью переработана с учетом замечаний экспертов'
-    };
+    console.log('✅ Программа отправлена на доработку');
+    console.log(`   Статус экспертизы: ${firstExpertise.status}`);
 
-    const resubmittedProgram = await expertiseService.resubmitAfterRevision(
-      program.id,
-      resubmitDto,
-      author
-    );
-
-    console.log('✅ Программа повторно отправлена на экспертизу');
-    console.log(`   Новая версия: ${resubmittedProgram.version}`);
-    console.log(`   Статус: ${resubmittedProgram.status}`);
-
-    // 9. Проверим назначенных экспертов
+    // 9. Проверим текущее состояние программы
     const finalProgram = await programsService.findOne(program.id, admin);
     console.log('\n👥 Новые эксперты для повторной экспертизы:');
     finalProgram.expertises.forEach((expertise, index) => {

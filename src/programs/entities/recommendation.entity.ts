@@ -10,19 +10,11 @@ import {
 import { User } from '../../users/entities/user.entity';
 import { Program } from './program.entity';
 
-export enum RecommendationType {
-  GENERAL = 'general',           // Общие рекомендации
-  CONTENT = 'content',           // По содержанию
-  METHODOLOGY = 'methodology',   // По методологии
-  STRUCTURE = 'structure',       // По структуре
-  ASSESSMENT = 'assessment',     // По оценке
-}
-
 export enum RecommendationStatus {
   ACTIVE = 'active',       // Активная
+  INACTIVE = 'inactive',   // Неактивная
   RESOLVED = 'resolved',   // Выполнена
-  IGNORED = 'ignored',     // Проигнорирована
-  ARCHIVED = 'archived',   // В архиве
+  ARCHIVED = 'archived',   // Архивирована
 }
 
 @Entity('recommendations')
@@ -36,12 +28,8 @@ export class Recommendation {
   @Column('text')
   content: string; // Содержание рекомендации
 
-  @Column({
-    type: 'enum',
-    enum: RecommendationType,
-    default: RecommendationType.GENERAL,
-  })
-  type: RecommendationType;
+  @Column({ nullable: true })
+  type: string; // Тип рекомендации (строка)
 
   @Column({
     type: 'enum',
@@ -49,12 +37,6 @@ export class Recommendation {
     default: RecommendationStatus.ACTIVE,
   })
   status: RecommendationStatus;
-
-  @Column({ type: 'int', default: 1 })
-  priority: number; // Приоритет (1-высокий, 2-средний, 3-низкий)
-
-  @Column({ type: 'timestamp', nullable: true })
-  dueDate: Date; // Срок выполнения
 
   @Column('text', { nullable: true })
   authorResponse: string; // Ответ автора на рекомендацию

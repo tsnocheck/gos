@@ -459,7 +459,6 @@ export class AdminService {
           expertiseCount: expertiseStats.total,
           pendingExpertiseCount: expertiseStats.pending,
           completedExpertiseCount: expertiseStats.completed,
-          averageRating: expertiseStats.averageRating,
           lastActivity: expert.updatedAt,
           createdAt: expert.createdAt,
         };
@@ -479,7 +478,6 @@ export class AdminService {
     total: number;
     pending: number;
     completed: number;
-    averageRating: number;
   }> {
     const total = await this.expertiseRepository.count({
       where: { expert: { id: expertId } },
@@ -499,27 +497,18 @@ export class AdminService {
       },
     });
 
-    // Вычисляем средний балл по завершенным экспертизам
-    const completedExpertises = await this.expertiseRepository.find({
+    // Подсчитываем завершённые экспертизы
+    const completedExpertises = await this.expertiseRepository.count({
       where: {
         expert: { id: expertId },
         status: ExpertiseStatus.COMPLETED,
-        totalScore: MoreThan(0),
       },
-      select: ['totalScore'],
     });
-
-    const averageRating =
-      completedExpertises.length > 0
-        ? completedExpertises.reduce((sum, e) => sum + e.totalScore, 0) /
-          completedExpertises.length
-        : 0;
 
     return {
       total,
       pending,
-      completed,
-      averageRating: Math.round(averageRating * 10) / 10, // Округляем до 1 знака после запятой
+      completed: completedExpertises,
     };
   }
 

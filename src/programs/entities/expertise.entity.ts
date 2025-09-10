@@ -35,41 +35,47 @@ export class Expertise {
   assignedAt: Date; // Дата назначения эксперта
 
   @Column('text', { nullable: true })
-  generalFeedback: string; // Общий отзыв эксперта
+  generalFeedback: string | null; // Общий отзыв эксперта
 
   @Column('text', { nullable: true })
-  recommendations: string; // Рекомендации
+  recommendations: string | null; // Рекомендации
 
   @Column('text', { nullable: true })
-  conclusion: string; // Заключение
+  conclusion: string | null; // Заключение
 
-  // Критерии оценки (можно расширить)
-  @Column({ type: 'int', nullable: true, default: 0 })
-  relevanceScore: number; // Актуальность (0-10)
+  // Критерии оценки согласно ТЗ (JSON формат для хранения структуры Criterion)
+  
+  // 1. Характеристика программы
+  @Column('jsonb', { nullable: true })
+  criterion1_1: { value: boolean; comment?: string; recommendation?: string }; // Актуальность разработки и реализации
 
-  @Column({ type: 'int', nullable: true, default: 0 })
-  contentQualityScore: number; // Качество содержания (0-10)
+  @Column('jsonb', { nullable: true })
+  criterion1_2: { value: boolean; comment?: string; recommendation?: string }; // Цель и тема программы
 
-  @Column({ type: 'int', nullable: true, default: 0 })
-  methodologyScore: number; // Методология (0-10)
+  @Column('jsonb', { nullable: true })
+  criterion1_3: { value: boolean; comment?: string; recommendation?: string }; // Профессиональный стандарт
 
-  @Column({ type: 'int', nullable: true, default: 0 })
-  practicalValueScore: number; // Практическая ценность (0-10)
+  @Column('jsonb', { nullable: true })
+  criterion1_4: { value: boolean; comment?: string; recommendation?: string }; // Планируемые результаты (знать/уметь)
 
-  @Column({ type: 'int', nullable: true, default: 0 })
-  innovationScore: number; // Инновационность (0-10)
+  @Column('jsonb', { nullable: true })
+  criterion1_5: { value: boolean; comment?: string; recommendation?: string }; // Планируемые результаты по программе
 
-  @Column({ type: 'decimal', precision: 3, scale: 1, nullable: true })
-  totalScore: number; // Общая оценка
+  // 2. Содержание программы
+  @Column('jsonb', { nullable: true })
+  criterion2_1: { value: boolean; comment?: string; recommendation?: string }; // Содержание соответствует теме
+
+  @Column('jsonb', { nullable: true })
+  criterion2_2: { value: boolean; comment?: string; recommendation?: string }; // Рабочие программы соответствуют плану
+
+  @Column('text', { nullable: true })
+  additionalRecommendation: string | null; // Дополнительные рекомендации
 
   @Column({ type: 'timestamp', nullable: true })
   reviewedAt: Date; // Дата завершения экспертизы
 
-  @Column('text', { nullable: true })
-  expertComments: string; // Комментарии эксперта
-
   @Column({ type: 'boolean', default: false })
-  isRecommendedForApproval: boolean; // Рекомендуется к одобрению
+  isRecommendedForApproval: boolean; // Рекомендуется к одобрению (автоматически вычисляется)
 
   @Column('text', { nullable: true })
   revisionComments: string; // Комментарии для доработки

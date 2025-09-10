@@ -9,14 +9,11 @@ import { ExpertiseStatus, ProgramStatus } from '../enums/program.enum';
 import { ExpertPosition } from '../enums/expert-assignment.enum';
 import {
   CreateExpertiseDto,
-  UpdateExpertiseDto,
-  CompleteExpertiseDto,
+  SubmitExpertiseDto,
   AssignExpertDto,
   ExpertiseQueryDto,
   SendForRevisionDto,
-  ResubmitAfterRevisionDto,
 } from '../dto/expertise.dto';
-import { ExpertiseCriteriaDto } from '../dto/expertise-criteria.dto';
 
 @Injectable()
 export class ExpertiseService {
@@ -150,65 +147,96 @@ export class ExpertiseService {
     return expertise;
   }
 
-  async update(id: string, updateExpertiseDto: UpdateExpertiseDto, user: User): Promise<Expertise> {
-    const expertise = await this.findOne(id, user);
-
-    // Только эксперт или админ могут обновлять экспертизу
-    if (this.hasRole(user, UserRole.EXPERT) && expertise.expertId !== user.id) {
-      throw new ForbiddenException('Нет доступа к редактированию этой экспертизы');
-    }
-
-    if (this.isOnlyAuthor(user)) {
-      throw new ForbiddenException('Авторы не могут редактировать экспертизы');
-    }
-
-    if (expertise.status === ExpertiseStatus.COMPLETED) {
-      throw new BadRequestException('Нельзя редактировать завершенную экспертизу');
-    }
-
-    // Обновляем статус на "в процессе" если эксперт начал работу
-    if (expertise.status === ExpertiseStatus.PENDING && this.hasRole(user, UserRole.EXPERT)) {
-      expertise.status = ExpertiseStatus.IN_PROGRESS;
-    }
-
-    Object.assign(expertise, updateExpertiseDto);
-
-    // Пересчитываем общую оценку если есть все баллы
-    this.calculateTotalScore(expertise);
-
-    return await this.expertiseRepository.save(expertise);
-  }
-
-  async complete(id: string, completeDto: CompleteExpertiseDto, expert: User): Promise<Expertise> {
+  async submit(id: string, submitDto: SubmitExpertiseDto, expert: User): Promise<Expertise> {
     if (!this.hasRole(expert, UserRole.EXPERT)) {
-      throw new ForbiddenException('Только эксперты могут завершать экспертизы');
+      throw new ForbiddenException('Только эксперты могут отправлять экспертизы');
     }
 
     const expertise = await this.findOne(id, expert);
 
     if (expertise.expertId !== expert.id) {
-      throw new ForbiddenException('Нет доступа к завершению этой экспертизы');
+      throw new ForbiddenException('Нет доступа к отправке этой экспертизы');
     }
 
     if (expertise.status === ExpertiseStatus.COMPLETED) {
       throw new BadRequestException('Экспертиза уже завершена');
     }
 
-    Object.assign(expertise, completeDto);
+    // Сохраняем все критерии
+    expertise.criterion1_1 = submitDto.criterion1_1;
+    expertise.criterion1_2 = submitDto.criterion1_2;
+    expertise.criterion1_3 = submitDto.criterion1_3;
+    expertise.criterion1_4 = submitDto.criterion1_4;
+    expertise.criterion1_5 = submitDto.criterion1_5;
+    expertise.criterion2_1 = submitDto.criterion2_1;
+    expertise.criterion2_2 = submitDto.criterion2_2;
+    
+    expertise.additionalRecommendation = submitDto.additionalRecommendation || null;
+    expertise.generalFeedback = submitDto.generalFeedback || null;
+    expertise.conclusion = submitDto.conclusion || null;
+
+    // Автоматически вычисляем рекомендацию к одобрению
+    expertise.isRecommendedForApproval = this.calculateRecommendation(submitDto);
+    
     expertise.status = ExpertiseStatus.COMPLETED;
     expertise.reviewedAt = new Date();
 
-    // Пересчитываем общую оценку
-    this.calculateTotalScore(expertise);
+    const savedExpertise = await this.expertiseRepository.save(expertise);
 
-    // Определяем статус экспертизы на основе рекомендации
-    if (completeDto.isRecommendedForApproval) {
-      expertise.status = ExpertiseStatus.APPROVED;
-    } else {
-      expertise.status = ExpertiseStatus.REJECTED;
+    // Проверяем, не пора ли принять финальное решение по программе
+    await this.checkFinalDecision(expertise.programId);
+
+    return savedExpertise;
+  }
+
+  // Вычисляет рекомендацию на основе критериев
+  private calculateRecommendation(submitDto: SubmitExpertiseDto): boolean {
+    // Если хоть один критерий имеет значение false, то не рекомендуется к одобрению
+    const criteria = [
+      submitDto.criterion1_1.value,
+      submitDto.criterion1_2.value,
+      submitDto.criterion1_3.value,
+      submitDto.criterion1_4.value,
+      submitDto.criterion1_5.value,
+      submitDto.criterion2_1.value,
+      submitDto.criterion2_2.value,
+    ];
+
+    return criteria.every(criterion => criterion === true);
+  }
+
+  // Проверяет, нужно ли принять финальное решение по программе
+  private async checkFinalDecision(programId: string): Promise<void> {
+    const program = await this.programRepository.findOne({
+      where: { id: programId },
+      relations: ['expertises'],
+    });
+
+    if (!program) return;
+
+    const completedExpertises = program.expertises.filter(
+      expertise => expertise.status === ExpertiseStatus.COMPLETED
+    );
+
+    // Если все 3 эксперта завершили работу
+    if (completedExpertises.length >= 3) {
+      const approvedCount = completedExpertises.filter(
+        expertise => expertise.isRecommendedForApproval
+      ).length;
+
+      // Если хоть один эксперт дал отрицательную оценку - программа не одобрена
+      const hasRejection = completedExpertises.some(
+        expertise => !expertise.isRecommendedForApproval
+      );
+
+      if (hasRejection || approvedCount < 3) {
+        program.status = ProgramStatus.NEEDS_REVISION;
+      } else {
+        program.status = ProgramStatus.APPROVED;
+      }
+
+      await this.programRepository.save(program);
     }
-
-    return await this.expertiseRepository.save(expertise);
   }
 
   async assignExpert(programId: string, assignDto: AssignExpertDto, admin: User): Promise<Expertise> {
@@ -441,20 +469,20 @@ export class ExpertiseService {
     return user;
   }
 
-  private calculateTotalScore(expertise: Expertise): void {
-    const scores = [
-      expertise.relevanceScore,
-      expertise.contentQualityScore,
-      expertise.methodologyScore,
-      expertise.practicalValueScore,
-      expertise.innovationScore,
+  private calculateRecommendationFromCriteria(expertise: Expertise): boolean {
+    // Проверяем все критерии
+    const criteria = [
+      expertise.criterion1_1?.value,
+      expertise.criterion1_2?.value,
+      expertise.criterion1_3?.value,
+      expertise.criterion1_4?.value,
+      expertise.criterion1_5?.value,
+      expertise.criterion2_1?.value,
+      expertise.criterion2_2?.value,
     ];
 
-    // Проверяем, что все оценки заполнены
-    if (scores.every(score => score !== null && score !== undefined)) {
-      const sum = scores.reduce((total, score) => total + score, 0);
-      expertise.totalScore = parseFloat((sum / scores.length).toFixed(1));
-    }
+    // Если хоть один критерий false или undefined, то не рекомендуется
+    return criteria.every(criterion => criterion === true);
   }
 
   // 1.8 Замена эксперта в случае необходимости
@@ -561,55 +589,6 @@ export class ExpertiseService {
     return expertises.length;
   }
 
-  // 3.2 Создание экспертного заключения по 13 критериям
-  async createExpertiseConclusion(expertiseId: string, criteriaDto: ExpertiseCriteriaDto, expert: User): Promise<Expertise> {
-    const expertise = await this.expertiseRepository.findOne({
-      where: { id: expertiseId },
-      relations: ['program', 'expert']
-    });
-
-    if (!expertise) {
-      throw new NotFoundException('Экспертиза не найдена');
-    }
-
-    if (expertise.expertId !== expert.id) {
-      throw new ForbiddenException('Только назначенный эксперт может создать заключение');
-    }
-
-    if (expertise.status !== ExpertiseStatus.IN_PROGRESS) {
-      throw new BadRequestException('Экспертиза должна быть в процессе для создания заключения');
-    }
-
-    // Сохраняем критерии в JSON формате
-    const criteriaData = {
-      criteria: {
-        criterion1: { value: criteriaDto.criterion1, comment: criteriaDto.criterion1Comment },
-        criterion2: { value: criteriaDto.criterion2, comment: criteriaDto.criterion2Comment },
-        criterion3: { value: criteriaDto.criterion3, comment: criteriaDto.criterion3Comment },
-        criterion4: { value: criteriaDto.criterion4, comment: criteriaDto.criterion4Comment },
-        criterion5: { value: criteriaDto.criterion5, comment: criteriaDto.criterion5Comment },
-        criterion6: { value: criteriaDto.criterion6, comment: criteriaDto.criterion6Comment },
-        criterion7: { value: criteriaDto.criterion7, comment: criteriaDto.criterion7Comment },
-        criterion8: { value: criteriaDto.criterion8, comment: criteriaDto.criterion8Comment },
-        criterion9: { value: criteriaDto.criterion9, comment: criteriaDto.criterion9Comment },
-        criterion10: { value: criteriaDto.criterion10, comment: criteriaDto.criterion10Comment },
-        criterion11: { value: criteriaDto.criterion11, comment: criteriaDto.criterion11Comment },
-        criterion12: { value: criteriaDto.criterion12, comment: criteriaDto.criterion12Comment },
-        criterion13: { value: criteriaDto.criterion13, comment: criteriaDto.criterion13Comment },
-      },
-      finalDecision: criteriaDto.finalDecision,
-      generalComment: criteriaDto.generalComment
-    };
-
-    // Обновляем экспертизу
-    expertise.expertComments = JSON.stringify(criteriaData);
-    expertise.isRecommendedForApproval = criteriaDto.finalDecision === 'approve';
-    expertise.status = ExpertiseStatus.COMPLETED;
-    expertise.reviewedAt = new Date();
-
-    return await this.expertiseRepository.save(expertise);
-  }
-
   // Получение PDF файла программы для эксперта
   async getProgramPdf(programId: string, expert: User): Promise<Buffer> {
     // Проверяем, что эксперт назначен на экспертизу этой программы
@@ -682,132 +661,6 @@ export class ExpertiseService {
     console.log(`Программа "${expertise.program.title}" отправлена на доработку экспертом ${expert.firstName} ${expert.lastName}`);
     
     return savedExpertise;
-  }
-
-  // Повторная отправка программы после доработки
-  async resubmitAfterRevision(programId: string, resubmitDto: ResubmitAfterRevisionDto, author: User): Promise<Program> {
-    const program = await this.programRepository.findOne({
-      where: { id: programId },
-      relations: ['expertises', 'expertises.expert', 'author']
-    });
-
-    if (!program) {
-      throw new NotFoundException('Программа не найдена');
-    }
-
-    if (program.authorId !== author.id) {
-      throw new ForbiddenException('Только автор программы может отправить её на повторную экспертизу');
-    }
-
-    if (program.status !== ProgramStatus.NEEDS_REVISION) {
-      throw new BadRequestException('Программа должна иметь статус "требует доработки"');
-    }
-
-    // Увеличиваем номер версии программы
-    program.version = (program.version || 1) + 1;
-    program.status = ProgramStatus.IN_REVIEW;
-    program.updatedAt = new Date();
-
-    // Добавляем заметки о ревизии
-    const revisionNotes = {
-      revisionRound: program.version,
-      revisionNotes: resubmitDto.revisionNotes,
-      changesSummary: resubmitDto.changesSummary,
-      resubmittedAt: new Date()
-    };
-
-    // Сохраняем заметки в специальном поле (если есть) или в комментариях
-    if (program.revisionHistory) {
-      const history = JSON.parse(program.revisionHistory);
-      history.push(revisionNotes);
-      program.revisionHistory = JSON.stringify(history);
-    } else {
-      program.revisionHistory = JSON.stringify([revisionNotes]);
-    }
-
-    // Назначаем НОВЫХ экспертов (не тех же самых)
-    await this.assignNewExpertsForRevision(program);
-
-    // Сохраняем программу после назначения экспертов через обновление
-    await this.programRepository.update(program.id, {
-      version: program.version,
-      status: program.status,
-      revisionHistory: program.revisionHistory
-    });
-
-    console.log(`Программа "${program.title}" отправлена на повторную экспертизу (версия ${program.version})`);
-    
-    return program;
-  }
-
-  // Назначение новых экспертов для повторной экспертизы
-  private async assignNewExpertsForRevision(program: Program): Promise<void> {
-    // Получаем ID экспертов, которые уже участвовали в экспертизе этой программы
-    const previousExpertIds = await this.expertiseRepository
-      .createQueryBuilder('expertise')
-      .select('expertise.expertId')
-      .where('expertise.programId = :programId', { programId: program.id })
-      .getRawMany()
-      .then(results => results.map(r => r.expertise_expertId));
-
-    // Получаем всех экспертов, исключая тех, кто уже участвовал в этой программе
-    const availableExperts = await this.userRepository
-      .createQueryBuilder('user')
-      .where("array_to_string(user.roles, ',') LIKE :pattern", { pattern: `%${UserRole.EXPERT}%` })
-      .andWhere('user.id NOT IN (:...excludeIds)', { excludeIds: previousExpertIds.length > 0 ? previousExpertIds : [''] })
-      .andWhere('user.status = :status', { status: 'active' })
-      .getMany();
-
-    if (availableExperts.length < 2) {
-      throw new BadRequestException('Недостаточно доступных экспертов для назначения новых рецензентов');
-    }
-
-    // Для каждого эксперта считаем количество назначенных программ (нагрузку)
-    const expertLoads: { expert: User; load: number }[] = [];
-    for (const expert of availableExperts) {
-      // Считаем только активные/ожидающие экспертизы
-      const load = await this.expertiseRepository.count({
-        where: {
-          expertId: expert.id,
-          status: In([ExpertiseStatus.PENDING, ExpertiseStatus.IN_PROGRESS])
-        }
-      });
-      expertLoads.push({ expert, load });
-    }
-
-    // Сортируем экспертов по возрастанию нагрузки
-    expertLoads.sort((a, b) => a.load - b.load);
-
-    // Удаляем старые экспертизы со статусом NEEDS_REVISION
-    await this.expertiseRepository
-      .createQueryBuilder()
-      .delete()
-      .from('expertises')
-      .where('programId = :programId', { programId: program.id })
-      .andWhere('status = :status', { status: ExpertiseStatus.NEEDS_REVISION })
-      .execute();
-
-    // Назначаем 2 экспертов с минимальной нагрузкой
-    const selectedExperts = expertLoads.slice(0, 2).map(e => e.expert);
-    for (let i = 0; i < selectedExperts.length; i++) {
-      const expert = selectedExperts[i];
-      const position = i === 0 ? ExpertPosition.FIRST : ExpertPosition.SECOND;
-      await this.expertiseRepository
-        .createQueryBuilder()
-        .insert()
-        .into('expertises')
-        .values({
-          programId: program.id,
-          expertId: expert.id,
-          assignedById: program.authorId,
-          status: ExpertiseStatus.PENDING,
-          position: position,
-          assignedAt: new Date(),
-          revisionRound: program.version || 1
-        })
-        .execute();
-      console.log(`Назначен новый эксперт ${expert.firstName} ${expert.lastName} для программы "${program.title}" (версия ${program.version})`);
-    }
   }
 
   // Получение экспертиз, отправленных на доработку (для автора)

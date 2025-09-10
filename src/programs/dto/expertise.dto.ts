@@ -1,5 +1,7 @@
-import { IsString, IsOptional, IsEnum, IsInt, IsUUID, IsBoolean, IsNumber, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsInt, IsUUID, IsBoolean, ValidateNested, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ExpertiseStatus } from '../enums/program.enum';
+import { Criterion } from './expertise-criteria.dto';
 
 export class CreateExpertiseDto {
   @IsUUID()
@@ -13,100 +15,48 @@ export class CreateExpertiseDto {
   initialComments?: string;
 }
 
-export class UpdateExpertiseDto {
-  @IsOptional()
-  @IsString()
-  generalFeedback?: string;
+export class SubmitExpertiseDto {
+  // 1. Характеристика программы
+  @ValidateNested()
+  @Type(() => Criterion)
+  criterion1_1: Criterion; // Актуальность разработки и реализации программы
+
+  @ValidateNested()
+  @Type(() => Criterion)
+  criterion1_2: Criterion; // Цель и тема программы соответствуют друг другу
+
+  @ValidateNested()
+  @Type(() => Criterion)
+  criterion1_3: Criterion; // Профессиональный стандарт
+
+  @ValidateNested()
+  @Type(() => Criterion)
+  criterion1_4: Criterion; // Планируемые результаты обучения (знать/уметь)
+
+  @ValidateNested()
+  @Type(() => Criterion)
+  criterion1_5: Criterion; // Планируемые результаты обучения по программе
+
+  // 2. Содержание программы
+  @ValidateNested()
+  @Type(() => Criterion)
+  criterion2_1: Criterion; // Содержание программы соответствует теме
+
+  @ValidateNested()
+  @Type(() => Criterion)
+  criterion2_2: Criterion; // Рабочие программы образовательных модулей
 
   @IsOptional()
   @IsString()
-  recommendations?: string;
+  additionalRecommendation?: string; // Дополнительные рекомендации
 
   @IsOptional()
   @IsString()
-  conclusion?: string;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(10)
-  relevanceScore?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(10)
-  contentQualityScore?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(10)
-  methodologyScore?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(10)
-  practicalValueScore?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(10)
-  innovationScore?: number;
+  generalFeedback?: string; // Общий отзыв эксперта
 
   @IsOptional()
   @IsString()
-  expertComments?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  isRecommendedForApproval?: boolean;
-}
-
-export class CompleteExpertiseDto {
-  @IsString()
-  generalFeedback: string;
-
-  @IsString()
-  conclusion: string;
-
-  @IsInt()
-  @Min(0)
-  @Max(10)
-  relevanceScore: number;
-
-  @IsInt()
-  @Min(0)
-  @Max(10)
-  contentQualityScore: number;
-
-  @IsInt()
-  @Min(0)
-  @Max(10)
-  methodologyScore: number;
-
-  @IsInt()
-  @Min(0)
-  @Max(10)
-  practicalValueScore: number;
-
-  @IsInt()
-  @Min(0)
-  @Max(10)
-  innovationScore: number;
-
-  @IsBoolean()
-  isRecommendedForApproval: boolean;
-
-  @IsOptional()
-  @IsString()
-  recommendations?: string;
-
-  @IsOptional()
-  @IsString()
-  expertComments?: string;
+  conclusion?: string; // Заключение
 }
 
 export class SendForRevisionDto {
@@ -120,15 +70,6 @@ export class SendForRevisionDto {
   @IsOptional()
   @IsString()
   recommendations?: string; // Рекомендации по улучшению
-}
-
-export class ResubmitAfterRevisionDto {
-  @IsString()
-  revisionNotes: string; // Заметки автора о внесенных изменениях
-
-  @IsOptional()
-  @IsString()
-  changesSummary?: string; // Краткое описание изменений
 }
 
 export class AssignExpertDto {

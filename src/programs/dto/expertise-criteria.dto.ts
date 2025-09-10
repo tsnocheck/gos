@@ -1,44 +1,53 @@
-export class ExpertiseCriteriaDto {
-  // 13 критериев из таблицы № 32
-  criterion1: boolean; // Соответствие названия содержанию программы
-  criterion1Comment?: string;
+import { IsBoolean, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
-  criterion2: boolean; // Актуальность программы 
-  criterion2Comment?: string;
+export class Criterion {
+  @IsBoolean()
+  value: boolean;
 
-  criterion3: boolean; // Соответствие целей и задач
-  criterion3Comment?: string;
+  @IsOptional()
+  @IsString()
+  comment?: string;
 
-  criterion4: boolean; // Качество содержания
-  criterion4Comment?: string;
+  @IsOptional()
+  @IsString()
+  recommendation?: string;
+}
 
-  criterion5: boolean; // Методическое обеспечение
-  criterion5Comment?: string;
+export class ExpertiseDto {
+  // 1. Характеристика программы
+  
+  @ValidateNested()
+  @Type(() => Criterion)
+  criterion1_1: Criterion; // Актуальность разработки и реализации программы
 
-  criterion6: boolean; // Практическая направленность
-  criterion6Comment?: string;
+  @ValidateNested()
+  @Type(() => Criterion)
+  criterion1_2: Criterion; // Цель и тема программы соответствуют друг другу
 
-  criterion7: boolean; // Инновационность подходов
-  criterion7Comment?: string;
+  @ValidateNested()
+  @Type(() => Criterion)
+  criterion1_3: Criterion; // Профессиональный стандарт или Единый квалификационный справочник должностей
 
-  criterion8: boolean; // Структура программы
-  criterion8Comment?: string;
+  @ValidateNested()
+  @Type(() => Criterion)
+  criterion1_4: Criterion; // Планируемые результаты обучения (в части «знать» и «уметь») соответствуют трудовым действиям
 
-  criterion9: boolean; // Компетентностный подход
-  criterion9Comment?: string;
+  @ValidateNested()
+  @Type(() => Criterion)
+  criterion1_5: Criterion; // Планируемые результаты обучения по программе соответствуют теме и цели программы
 
-  criterion10: boolean; // Оценочные материалы
-  criterion10Comment?: string;
+  // 2. Содержание программы
 
-  criterion11: boolean; // Кадровое обеспечение
-  criterion11Comment?: string;
+  @ValidateNested()
+  @Type(() => Criterion)
+  criterion2_1: Criterion; // Содержание программы соответствует теме программы
 
-  criterion12: boolean; // Материально-техническое обеспечение
-  criterion12Comment?: string;
+  @ValidateNested()
+  @Type(() => Criterion)
+  criterion2_2: Criterion; // Рабочие программы образовательных модулей соответствуют учебному (тематическому) плану
 
-  criterion13: boolean; // Информационное обеспечение
-  criterion13Comment?: string;
-
-  finalDecision: 'approve' | 'reject'; // Итоговое решение
-  generalComment?: string; // Общий комментарий
+  @IsOptional()
+  @IsString()
+  additionalRecommendation?: string; // Дополнительные рекомендации (по желанию эксперта)
 }

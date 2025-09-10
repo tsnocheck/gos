@@ -2,14 +2,13 @@ import {
   IsString,
   IsOptional,
   IsEnum,
-  IsInt,
   IsUUID,
-  IsDateString,
+  IsInt,
   Min,
   Max,
+  IsDateString,
 } from 'class-validator';
 import {
-  RecommendationType,
   RecommendationStatus,
 } from '../entities/recommendation.entity';
 
@@ -21,18 +20,8 @@ export class CreateRecommendationDto {
   content: string;
 
   @IsOptional()
-  @IsEnum(RecommendationType)
-  type?: RecommendationType;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(3)
-  priority?: number;
-
-  @IsOptional()
-  @IsDateString()
-  dueDate?: string;
+  @IsString()
+  type?: string;
 
   @IsOptional()
   @IsUUID()
@@ -49,18 +38,8 @@ export class UpdateRecommendationDto {
   content?: string;
 
   @IsOptional()
-  @IsEnum(RecommendationType)
-  type?: RecommendationType;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(3)
-  priority?: number;
-
-  @IsOptional()
-  @IsDateString()
-  dueDate?: string;
+  @IsString()
+  type?: string;
 
   @IsOptional()
   @IsUUID()
@@ -95,8 +74,8 @@ export class RecommendationQueryDto {
   status?: RecommendationStatus;
 
   @IsOptional()
-  @IsEnum(RecommendationType)
-  type?: RecommendationType;
+  @IsString()
+  type?: string;
 
   @IsOptional()
   @IsUUID()
@@ -109,12 +88,6 @@ export class RecommendationQueryDto {
   @IsOptional()
   @IsUUID()
   createdById?: string;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(3)
-  priority?: number;
 
   @IsOptional()
   @IsString()

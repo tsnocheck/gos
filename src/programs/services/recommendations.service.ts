@@ -95,7 +95,6 @@ export class RecommendationsService {
       programId,
       assignedToId,
       createdById,
-      priority,
       sortBy = 'createdAt',
       sortOrder = 'DESC',
       page = 1,
@@ -162,19 +161,10 @@ export class RecommendationsService {
       });
     }
 
-    // Фильтрация по приоритету
-    if (priority) {
-      queryBuilder.andWhere('recommendation.priority = :priority', {
-        priority,
-      });
-    }
-
     // Сортировка
     const allowedSortFields = [
       'createdAt',
       'updatedAt',
-      'dueDate',
-      'priority',
       'title',
     ];
     if (allowedSortFields.includes(sortBy)) {
@@ -375,22 +365,6 @@ export class RecommendationsService {
       .groupBy('recommendation.type')
       .getRawMany();
 
-    const priorityCounts = await queryBuilder
-      .select('recommendation.priority, COUNT(*) as count')
-      .groupBy('recommendation.priority')
-      .getRawMany();
-
-    // Статистика по срокам выполнения
-    const overdueCount = await queryBuilder
-      .where(
-        'recommendation.dueDate < :now AND recommendation.status != :resolved',
-        {
-          now: new Date(),
-          resolved: RecommendationStatus.RESOLVED,
-        },
-      )
-      .getCount();
-
     return {
       total,
       statusCounts: statusCounts.reduce((acc, item) => {
@@ -401,11 +375,6 @@ export class RecommendationsService {
         acc[item.type] = parseInt(item.count);
         return acc;
       }, {}),
-      priorityCounts: priorityCounts.reduce((acc, item) => {
-        acc[item.priority] = parseInt(item.count);
-        return acc;
-      }, {}),
-      overdueCount,
     };
   }
 
@@ -427,7 +396,6 @@ export class RecommendationsService {
     if (createDto.type) {
       recommendation.type = createDto.type;
     }
-    recommendation.priority = createDto.priority || 1;
     recommendation.createdById = admin.id;
     (recommendation as any).programId = null;
     (recommendation as any).assignedToId = null;
@@ -486,7 +454,7 @@ export class RecommendationsService {
     return await this.recommendationRepository.find({
       where,
       relations: ['createdBy'],
-      order: { priority: 'DESC', createdAt: 'DESC' },
+      order: { createdAt: 'DESC' },
     });
   }
 
@@ -516,8 +484,7 @@ export class RecommendationsService {
     }
 
     queryBuilder
-      .orderBy('recommendation.priority', 'DESC')
-      .addOrderBy('recommendation.createdAt', 'DESC');
+      .orderBy('recommendation.createdAt', 'DESC');
 
     return await queryBuilder.getMany();
   }

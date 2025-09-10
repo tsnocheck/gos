@@ -20,12 +20,10 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { UserRole } from '../../users/enums/user.enum';
 import {
   CreateExpertiseDto,
-  UpdateExpertiseDto,
-  CompleteExpertiseDto,
+  SubmitExpertiseDto,
   AssignExpertDto,
   ExpertiseQueryDto,
   SendForRevisionDto,
-  ResubmitAfterRevisionDto,
 } from '../dto/expertise.dto';
 
 @Controller('expertise')
@@ -77,26 +75,15 @@ export class ExpertiseController {
     return await this.expertiseService.findOne(id, req.user);
   }
 
-  @Patch(':id')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.EXPERT, UserRole.ADMIN)
-  async update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() updateExpertiseDto: UpdateExpertiseDto,
-    @Request() req,
-  ) {
-    return await this.expertiseService.update(id, updateExpertiseDto, req.user);
-  }
-
-  @Post(':id/complete')
+  @Post(':id/submit')
   @UseGuards(RolesGuard)
   @Roles(UserRole.EXPERT)
-  async complete(
+  async submit(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() completeDto: CompleteExpertiseDto,
+    @Body() submitDto: SubmitExpertiseDto,
     @Request() req,
   ) {
-    return await this.expertiseService.complete(id, completeDto, req.user);
+    return await this.expertiseService.submit(id, submitDto, req.user);
   }
 
   @Post(':id/send-for-revision')
@@ -108,17 +95,6 @@ export class ExpertiseController {
     @Request() req,
   ) {
     return await this.expertiseService.sendForRevision(id, revisionDto, req.user);
-  }
-
-  @Post(':programId/resubmit-after-revision')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.AUTHOR)
-  async resubmitAfterRevision(
-    @Param('programId', ParseUUIDPipe) programId: string,
-    @Body() resubmitDto: ResubmitAfterRevisionDto,
-    @Request() req,
-  ) {
-    return await this.expertiseService.resubmitAfterRevision(programId, resubmitDto, req.user);
   }
 
   @Post('programs/:programId/assign')
@@ -206,21 +182,6 @@ export class ExpertiseController {
   }
 
   // 3.2 Создание экспертного заключения по 13 критериям
-  @Post(':id/criteria-conclusion')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.EXPERT)
-  async createCriteriaConclusion(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() criteriaDto: any, // Используем any пока, т.к. DTO может быть сложной
-    @Request() req,
-  ) {
-    return this.expertiseService.createExpertiseConclusion(
-      id,
-      criteriaDto,
-      req.user,
-    );
-  }
-
   // 3.4 Получение всех экспертиз эксперта с фильтрацией
   @Get('expert/my-table')
   @UseGuards(JwtAuthGuard, RolesGuard)
